@@ -34,6 +34,24 @@ const bytesToHex = (bytes: Uint8Array, maxBytes: number = 256): string => {
 const FileCard = ({ file }: { file: FileData }) => {
   const [expanded, setExpanded] = useState(false)
 
+  // Calculate statistics once
+  const getStats = () => {
+    let sum = 0
+    let min = 255
+    let max = 0
+    for (let i = 0; i < file.binaryData.length; i++) {
+      const byte = file.binaryData[i]
+      sum += byte
+      if (byte < min) min = byte
+      if (byte > max) max = byte
+    }
+    return {
+      avg: (sum / file.binaryData.length).toFixed(2),
+      min,
+      max
+    }
+  }
+
   return (
     <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10 hover:bg-white/10 transition-all duration-300">
       <div className="flex items-start justify-between mb-4">
@@ -97,26 +115,29 @@ const FileCard = ({ file }: { file: FileData }) => {
             <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">
               Binary Statistics
             </p>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-              <div>
-                <span className="text-gray-500">Total Bytes:</span>{' '}
-                <span className="text-gray-300 font-medium">{file.binaryData.length}</span>
-              </div>
-              <div>
-                <span className="text-gray-500">Avg Value:</span>{' '}
-                <span className="text-gray-300 font-medium">
-                  {(file.binaryData.reduce((a, b) => a + b, 0) / file.binaryData.length).toFixed(2)}
-                </span>
-              </div>
-              <div>
-                <span className="text-gray-500">Min Value:</span>{' '}
-                <span className="text-gray-300 font-medium">{Math.min(...file.binaryData)}</span>
-              </div>
-              <div>
-                <span className="text-gray-500">Max Value:</span>{' '}
-                <span className="text-gray-300 font-medium">{Math.max(...file.binaryData)}</span>
-              </div>
-            </div>
+            {(() => {
+              const stats = getStats()
+              return (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+                  <div>
+                    <span className="text-gray-500">Total Bytes:</span>{' '}
+                    <span className="text-gray-300 font-medium">{file.binaryData.length}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Avg Value:</span>{' '}
+                    <span className="text-gray-300 font-medium">{stats.avg}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Min Value:</span>{' '}
+                    <span className="text-gray-300 font-medium">{stats.min}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-500">Max Value:</span>{' '}
+                    <span className="text-gray-300 font-medium">{stats.max}</span>
+                  </div>
+                </div>
+              )
+            })()}
           </div>
         </div>
       )}
