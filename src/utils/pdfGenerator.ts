@@ -61,7 +61,7 @@ export const generatePDFSummary = (files: FileData[]) => {
     categories[cat] = (categories[cat] || 0) + 1
   })
   
-  // File type breakdown with accuracy and confidence
+  // File type breakdown - GROUP BY ACTUAL EXTENSION (ground truth)
   const filetypeStats: { [key: string]: { 
     count: number, 
     totalConfidence: number, 
@@ -71,9 +71,20 @@ export const generatePDFSummary = (files: FileData[]) => {
   } } = {}
   
   files.forEach(f => {
-    const type = f.filetype || 'unknown'
-    if (!filetypeStats[type]) {
-      filetypeStats[type] = { 
+    // Use ACTUAL extension as the key, not AI prediction
+    let actualType = f.filename.split('.').pop()?.toLowerCase() || 'unknown'
+    
+    // Normalize aliases to consistent names
+    const normalizeType = (type: string): string => {
+      if (type === 'jpeg') return 'jpg'
+      if (type === 'htm') return 'html'
+      return type
+    }
+    
+    actualType = normalizeType(actualType)
+    
+    if (!filetypeStats[actualType]) {
+      filetypeStats[actualType] = { 
         count: 0, 
         totalConfidence: 0, 
         avgConfidence: 0,
@@ -81,16 +92,16 @@ export const generatePDFSummary = (files: FileData[]) => {
         accuracy: 0
       }
     }
-    filetypeStats[type].count++
+    filetypeStats[actualType].count++
     
     // Add confidence score
     if (f.confidence_score) {
-      filetypeStats[type].totalConfidence += f.confidence_score
+      filetypeStats[actualType].totalConfidence += f.confidence_score
     }
     
-    // Check if prediction is correct (vs filename extension)
+    // Check if AI prediction matches actual extension
     if (calculateAccuracy(f)) {
-      filetypeStats[type].correctCount++
+      filetypeStats[actualType].correctCount++
     }
   })
   
@@ -101,36 +112,10 @@ export const generatePDFSummary = (files: FileData[]) => {
     stats.accuracy = stats.count > 0 ? stats.correctCount / stats.count : 0
   })
   
-  // Helper: Check if files with this extension actually exist
-  const filesWithExtensionExist = (type: string): boolean => {
-    return files.some(f => {
-      const ext = f.filename.split('.').pop()?.toLowerCase()
-      const predictedType = type.toLowerCase()
-      
-      // Direct match
-      if (ext === predictedType) return true
-      
-      // Check aliases
-      const aliases: { [key: string]: string[] } = {
-        'jpg': ['jpeg', 'jpg'],
-        'jpeg': ['jpeg', 'jpg'],
-        'htm': ['html', 'htm'],
-        'html': ['html', 'htm'],
-        'js': ['javascript', 'js'],
-        'ts': ['typescript', 'ts'],
-        'py': ['python', 'py'],
-      }
-      
-      if (aliases[ext || '']?.includes(predictedType)) return true
-      if (aliases[predictedType]?.includes(ext || '')) return true
-      
-      return false
-    })
-  }
-  
-  // Sort file types by count (descending) and filter to only existing types
+  // Sort file types by count (descending)
+  // Since we're grouping by actual extension, all types in the table exist by definition
   const sortedFiletypes = Object.entries(filetypeStats)
-    .filter(([type]) => filesWithExtensionExist(type))  // Only show types that actually exist
+    .filter(([type]) => type !== 'unknown')  // Exclude unknown types
     .sort((a, b) => b[1].count - a[1].count)
   
   // ZIP files info
