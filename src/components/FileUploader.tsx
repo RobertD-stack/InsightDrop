@@ -1,11 +1,10 @@
 import { useCallback, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
-import { Upload, File, Loader2 } from 'lucide-react'
-import { FileClassification } from '../types'
-import { mockClassifyFile } from '../utils/mockBackend'
+import { Upload, File as FileIcon, Loader2 } from 'lucide-react'
+import { FileData } from '../types'
 
 interface FileUploaderProps {
-  onFilesProcessed: (results: FileClassification[]) => void
+  onFilesProcessed: (results: FileData[]) => void
   processing: boolean
   setProcessing: (processing: boolean) => void
 }
@@ -13,22 +12,50 @@ interface FileUploaderProps {
 const FileUploader = ({ onFilesProcessed, processing, setProcessing }: FileUploaderProps) => {
   const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({})
 
+  const convertFileToBinary = async (file: File): Promise<Uint8Array> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => {
+        const arrayBuffer = reader.result as ArrayBuffer
+        resolve(new Uint8Array(arrayBuffer))
+      }
+      reader.onerror = reject
+      reader.readAsArrayBuffer(file)
+    })
+  }
+
   const processFiles = async (files: File[]) => {
     setProcessing(true)
-    const results: FileClassification[] = []
+    const results: FileData[] = []
 
     for (const file of files) {
-      // Simulate upload progress
+      // Show upload progress
       setUploadProgress(prev => ({ ...prev, [file.name]: 0 }))
       
-      for (let i = 0; i <= 100; i += 20) {
-        await new Promise(resolve => setTimeout(resolve, 100))
+      // Simulate progress while reading
+      for (let i = 0; i <= 80; i += 20) {
+        await new Promise(resolve => setTimeout(resolve, 50))
         setUploadProgress(prev => ({ ...prev, [file.name]: i }))
       }
 
-      // Mock classification
-      const result = await mockClassifyFile(file)
+      // Convert file to binary
+      const binaryData = await convertFileToBinary(file)
+      
+      setUploadProgress(prev => ({ ...prev, [file.name]: 100 }))
+      
+      // Create result object
+      const result: FileData = {
+        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        filename: file.name,
+        size: file.size,
+        type: file.type || 'application/octet-stream',
+        binaryData: binaryData,
+        timestamp: new Date().toISOString(),
+      }
+      
       results.push(result)
+      
+      await new Promise(resolve => setTimeout(resolve, 100))
       
       setUploadProgress(prev => {
         const newProgress = { ...prev }
@@ -74,13 +101,13 @@ const FileUploader = ({ onFilesProcessed, processing, setProcessing }: FileUploa
           ) : isDragActive ? (
             <Upload className="w-16 h-16 text-primary-400 animate-bounce" />
           ) : (
-            <File className="w-16 h-16 text-gray-400" />
+            <FileIcon className="w-16 h-16 text-gray-400" />
           )}
           
           <div className="space-y-2">
             <p className="text-xl font-semibold text-white">
               {processing 
-                ? 'Processing files...' 
+                ? 'Converting to binary...' 
                 : isDragActive
                 ? 'Drop files here...'
                 : 'Drag & drop files here'
@@ -105,7 +132,7 @@ const FileUploader = ({ onFilesProcessed, processing, setProcessing }: FileUploa
       {/* Upload Progress */}
       {Object.keys(uploadProgress).length > 0 && (
         <div className="space-y-3">
-          <h3 className="text-sm font-semibold text-white">Processing...</h3>
+          <h3 className="text-sm font-semibold text-white">Converting...</h3>
           {Object.entries(uploadProgress).map(([filename, progress]) => (
             <div key={filename} className="space-y-1">
               <div className="flex justify-between text-sm">

@@ -2,13 +2,13 @@ import { useState } from 'react'
 import FileUploader from './components/FileUploader'
 import ResultsDisplay from './components/ResultsDisplay'
 import Header from './components/Header'
-import { FileClassification } from './types'
+import { FileData } from './types'
 
 function App() {
-  const [results, setResults] = useState<FileClassification[]>([])
+  const [results, setResults] = useState<FileData[]>([])
   const [processing, setProcessing] = useState(false)
 
-  const handleFilesProcessed = (newResults: FileClassification[]) => {
+  const handleFilesProcessed = (newResults: FileData[]) => {
     setResults(prev => [...newResults, ...prev])
   }
 
@@ -36,7 +36,7 @@ function App() {
             <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 shadow-2xl border border-white/20">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-white">
-                  Classification Results ({results.length})
+                  Uploaded Files ({results.length})
                 </h2>
                 <button
                   onClick={clearResults}
@@ -53,28 +53,21 @@ function App() {
           {results.length === 0 && !processing && (
             <div className="bg-white/5 backdrop-blur-lg rounded-2xl p-8 border border-white/10">
               <h3 className="text-xl font-semibold text-white mb-4">
-                How It Works
+                File to Binary Converter
               </h3>
-              <div className="grid md:grid-cols-3 gap-6 text-gray-300">
+              <div className="grid md:grid-cols-2 gap-6 text-gray-300">
                 <div className="space-y-2">
                   <div className="text-3xl">📁</div>
                   <h4 className="font-semibold text-white">Upload Files</h4>
                   <p className="text-sm">
-                    Drag and drop or click to upload any file type. Supports batch processing.
+                    Drag and drop or click to upload any file type. All files will be converted to binary data.
                   </p>
                 </div>
                 <div className="space-y-2">
-                  <div className="text-3xl">🤖</div>
-                  <h4 className="font-semibold text-white">AI Analysis</h4>
+                  <div className="text-3xl">🔢</div>
+                  <h4 className="font-semibold text-white">Binary Conversion</h4>
                   <p className="text-sm">
-                    Our AI analyzes binary signatures and content to identify file types with high accuracy.
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  <div className="text-3xl">📊</div>
-                  <h4 className="font-semibold text-white">Get Results</h4>
-                  <p className="text-sm">
-                    Receive detailed metadata including file type, category, confidence score, and more.
+                    Files are read as binary data (ArrayBuffer) and displayed as hexadecimal bytes.
                   </p>
                 </div>
               </div>
