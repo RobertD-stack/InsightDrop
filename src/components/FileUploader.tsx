@@ -25,22 +25,21 @@ const FileUploader = ({ onFilesProcessed, processing, setProcessing }: FileUploa
     })
   }
 
-  const fileToBase64 = async (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = () => {
-        const base64 = (reader.result as string).split(',')[1]
-        resolve(base64)
-      }
-      reader.onerror = reject
-      reader.readAsDataURL(file)
-    })
+  const uint8ArrayToBase64 = (bytes: Uint8Array): string => {
+    // Convert Uint8Array to base64 in chunks to avoid stack overflow
+    let binary = ''
+    const chunkSize = 8192
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      const chunk = bytes.subarray(i, i + chunkSize)
+      binary += String.fromCharCode.apply(null, Array.from(chunk))
+    }
+    return btoa(binary)
   }
 
   const classifyFile = async (filename: string, binaryData: Uint8Array): Promise<any> => {
     try {
-      // Convert Uint8Array to base64
-      const base64 = btoa(String.fromCharCode(...binaryData))
+      // Convert Uint8Array to base64 safely (handles large files)
+      const base64 = uint8ArrayToBase64(binaryData)
       
       const response = await fetch('http://localhost:5000/api/classify', {
         method: 'POST',
@@ -278,7 +277,7 @@ const FileUploader = ({ onFilesProcessed, processing, setProcessing }: FileUploa
           <div className="space-y-2">
             <p className="text-xl font-semibold text-white">
               {processing 
-                ? 'Converting to binary...' 
+                ? 'Classifying files with AI...' 
                 : isDragActive
                 ? 'Drop files here...'
                 : 'Drag & drop files here'
@@ -303,7 +302,7 @@ const FileUploader = ({ onFilesProcessed, processing, setProcessing }: FileUploa
       {/* Upload Progress */}
       {Object.keys(uploadProgress).length > 0 && (
         <div className="space-y-3">
-          <h3 className="text-sm font-semibold text-white">Converting...</h3>
+          <h3 className="text-sm font-semibold text-white">Classifying files...</h3>
           {Object.entries(uploadProgress).map(([filename, progress]) => (
             <div key={filename} className="space-y-1">
               <div className="flex justify-between text-sm">
