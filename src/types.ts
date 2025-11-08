@@ -17,5 +17,6 @@ export interface FileData {
   metadata?: Record<string, any>
   processing?: boolean
   error?: string
+  aiModel?: string  // Which AI model was used for classification
 }
 

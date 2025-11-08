@@ -8,6 +8,7 @@ import { generatePDFSummary } from './utils/pdfGenerator'
 function App() {
   const [results, setResults] = useState<FileData[]>([])
   const [processing, setProcessing] = useState(false)
+  const [selectedModel, setSelectedModel] = useState('signature-based')
 
   const handleFilesProcessed = (newResults: FileData[]) => {
     setResults(prev => [...newResults, ...prev])
@@ -34,12 +35,40 @@ function App() {
       
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-7xl mx-auto space-y-8">
+          {/* Model Selection */}
+          <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 shadow-2xl border border-white/20">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-white mb-2">AI Model Selection</h3>
+                <p className="text-sm text-gray-400">Choose the classification model to use</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <label className="text-sm text-gray-300 font-medium">Model:</label>
+                <select
+                  value={selectedModel}
+                  onChange={(e) => setSelectedModel(e.target.value)}
+                  disabled={processing}
+                  className="px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <option value="signature-based" className="bg-slate-800">Signature-Based (Fast)</option>
+                  <option value="magic-library" className="bg-slate-800">Magic Library (Accurate)</option>
+                  <option value="hybrid" className="bg-slate-800">Hybrid (Balanced)</option>
+                  <option value="ml-enhanced" className="bg-slate-800">ML-Enhanced (Experimental)</option>
+                </select>
+                <div className="px-3 py-2 bg-blue-500/20 border border-blue-400/30 rounded-lg">
+                  <span className="text-xs text-blue-300 font-medium">Current: {selectedModel}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Upload Section */}
           <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 shadow-2xl border border-white/20">
             <FileUploader 
               onFilesProcessed={handleFilesProcessed}
               processing={processing}
               setProcessing={setProcessing}
+              selectedModel={selectedModel}
             />
           </div>
 

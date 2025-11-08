@@ -8,13 +8,21 @@ export const generatePDFSummary = (files: FileData[]) => {
   doc.setFontSize(20)
   doc.text('File Classification Summary Report', 20, 20)
   
-  // Date
+  // Date and Model Info
   doc.setFontSize(10)
   doc.text(`Generated: ${new Date().toLocaleString()}`, 20, 30)
   
+  // Get the AI model used (from first file with model info)
+  const modelUsed = files.find(f => f.aiModel)?.aiModel || 'Not specified'
+  doc.text(`AI Model: ${modelUsed}`, 20, 37)
+  doc.setFontSize(9)
+  doc.setFont(undefined, 'italic')
+  doc.text(`(All files classified using this model)`, 20, 42)
+  doc.setFont(undefined, 'normal')
+  
   // Summary Statistics
   doc.setFontSize(14)
-  doc.text('Summary Statistics', 20, 45)
+  doc.text('Summary Statistics', 20, 50)
   
   doc.setFontSize(10)
   const totalFiles = files.length
@@ -122,7 +130,7 @@ export const generatePDFSummary = (files: FileData[]) => {
   const filesFromZip = files.filter(f => f.isFromZip).length
   const zipSources = [...new Set(files.filter(f => f.zipSource).map(f => f.zipSource))]
   
-  let yPos = 55
+  let yPos = 60
   doc.text(`Total Files Analyzed: ${totalFiles}`, 20, yPos)
   yPos += 7
   doc.text(`Total Size: ${formatBytes(totalSize)}`, 20, yPos)

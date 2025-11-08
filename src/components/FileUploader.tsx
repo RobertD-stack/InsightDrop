@@ -8,9 +8,10 @@ interface FileUploaderProps {
   onFilesProcessed: (results: FileData[]) => void
   processing: boolean
   setProcessing: (processing: boolean) => void
+  selectedModel: string
 }
 
-const FileUploader = ({ onFilesProcessed, processing, setProcessing }: FileUploaderProps) => {
+const FileUploader = ({ onFilesProcessed, processing, setProcessing, selectedModel }: FileUploaderProps) => {
   const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({})
 
   const convertFileToBinary = async (file: File): Promise<Uint8Array> => {
@@ -157,7 +158,7 @@ const FileUploader = ({ onFilesProcessed, processing, setProcessing }: FileUploa
         const response = await fetch('http://localhost:5000/api/classify-batch', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ files: filesData })
+          body: JSON.stringify({ files: filesData, model: selectedModel })
         })
 
         if (response.ok) {
@@ -179,7 +180,8 @@ const FileUploader = ({ onFilesProcessed, processing, setProcessing }: FileUploa
             mime_type: result.mime_type,
             encoding: result.encoding,
             language: result.language,
-            metadata: result.metadata
+            metadata: result.metadata,
+            aiModel: selectedModel
           }))
           
           // Progressive results - show this batch immediately!
@@ -279,7 +281,7 @@ const FileUploader = ({ onFilesProcessed, processing, setProcessing }: FileUploa
         const response = await fetch('http://localhost:5000/api/classify-batch', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ files: filesData })
+          body: JSON.stringify({ files: filesData, model: selectedModel })
         })
 
         if (response.ok) {
@@ -298,7 +300,8 @@ const FileUploader = ({ onFilesProcessed, processing, setProcessing }: FileUploa
             mime_type: result.mime_type,
             encoding: result.encoding,
             language: result.language,
-            metadata: result.metadata
+            metadata: result.metadata,
+            aiModel: selectedModel
           }))
           
           // Progressive results - show this batch immediately!
