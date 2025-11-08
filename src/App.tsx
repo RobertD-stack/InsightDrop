@@ -50,10 +50,9 @@ function App() {
                   disabled={processing}
                   className="px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <option value="signature-based" className="bg-slate-800">Signature-Based (Fast)</option>
-                  <option value="magic-library" className="bg-slate-800">Magic Library (Accurate)</option>
-                  <option value="hybrid" className="bg-slate-800">Hybrid (Balanced)</option>
-                  <option value="ml-enhanced" className="bg-slate-800">ML-Enhanced (Experimental)</option>
+                  <option value="signature-based" className="bg-slate-800">Signature Detection (Fast & Free)</option>
+                  <option value="gemini" className="bg-slate-800">Google Gemini (AI-Powered)</option>
+                  <option value="ollama" className="bg-slate-800">Ollama Llama 3.2 (Local & Private)</option>
                 </select>
                 <div className="px-3 py-2 bg-blue-500/20 border border-blue-400/30 rounded-lg">
                   <span className="text-xs text-blue-300 font-medium">Current: {selectedModel}</span>

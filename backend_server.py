@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from src.pipeline import FileClassificationPipeline
+from src.model_dispatcher import ModelDispatcher
 import base64
 
 app = Flask(__name__)
@@ -18,20 +18,25 @@ CORS(app, resources={
 # Configure Flask for large file uploads (2GB max)
 app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024 * 1024  # 2GB
 
-# Initialize the AI pipeline
-pipeline = FileClassificationPipeline()
+# Initialize the model dispatcher (supports multiple models)
+print("\n" + "="*60)
+print("Initializing AI Models...")
+print("="*60)
+dispatcher = ModelDispatcher()
+print("="*60 + "\n")
 
 @app.route('/api/classify', methods=['POST'])
 def classify_file():
     """
     Endpoint to classify a single file
-    Expects: { filename: string, binaryData: base64 string }
+    Expects: { filename: string, binaryData: base64 string, model: string (optional) }
     Returns: classification result
     """
     try:
         data = request.json
         filename = data.get('filename')
         binary_data_base64 = data.get('binaryData')
+        model = data.get('model', 'signature-based')  # Default to signature-based
         
         if not filename or not binary_data_base64:
             return jsonify({'error': 'Missing filename or binaryData'}), 400
@@ -39,8 +44,8 @@ def classify_file():
         # Decode base64 to bytes
         binary_data = base64.b64decode(binary_data_base64)
         
-        # Process through AI pipeline
-        result = pipeline.process_file(binary_data, filename)
+        # Process through selected model
+        result = dispatcher.classify(binary_data, filename, model)
         
         # Convert to dict and return
         return jsonify({
@@ -58,28 +63,31 @@ def classify_file():
 def classify_batch():
     """
     Endpoint to classify multiple files
-    Expects: { files: [{ filename: string, binaryData: base64 string }, ...] }
+    Expects: { files: [{ filename: string, binaryData: base64 string }, ...], model: string (optional) }
     Returns: array of classification results
     """
     try:
         data = request.json
         files_data = data.get('files', [])
+        model = data.get('model', 'signature-based')  # Default to signature-based
         
         if not files_data:
             return jsonify({'error': 'No files provided'}), 400
         
-        # Prepare files for batch processing
-        files_to_process = []
+        print(f"\n📊 Batch classification request: {len(files_data)} files using model '{model}'")
+        
+        # Process each file with selected model
+        results = []
         for file_data in files_data:
             filename = file_data.get('filename')
             binary_data_base64 = file_data.get('binaryData')
             
             if filename and binary_data_base64:
                 binary_data = base64.b64decode(binary_data_base64)
-                files_to_process.append((binary_data, filename))
+                result = dispatcher.classify(binary_data, filename, model)
+                results.append(result)
         
-        # Process batch through AI pipeline
-        results = pipeline.process_batch(files_to_process)
+        print(f"✅ Batch complete: {len(results)} files classified")
         
         # Convert all results to dicts
         return jsonify({
@@ -88,6 +96,7 @@ def classify_batch():
         })
         
     except Exception as e:
+        print(f"❌ Batch classification error: {e}")
         return jsonify({
             'success': False,
             'error': str(e)
