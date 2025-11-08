@@ -2,25 +2,58 @@ import React, { useState } from 'react'
 import FileUploader from './components/FileUploader'
 import ResultsDisplay from './components/ResultsDisplay'
 import Header from './components/Header'
-import { FileData } from './types'
+import { FileData, TimingData } from './types'
 import { generatePDFSummary } from './utils/pdfGenerator'
 
 function App() {
   const [results, setResults] = useState<FileData[]>([])
   const [processing, setProcessing] = useState(false)
   const [selectedModel, setSelectedModel] = useState('signature-based')
+  const [cumulativeTiming, setCumulativeTiming] = useState<TimingData>({
+    totalTime: 0,
+    classificationTime: 0,
+    decodeTime: 0,
+    filesProcessed: 0,
+    avgPerFile: 0
+  })
 
-  const handleFilesProcessed = (newResults: FileData[]) => {
+  const handleFilesProcessed = (newResults: FileData[], timing?: TimingData) => {
     setResults(prev => [...newResults, ...prev])
+    
+    // Accumulate timing data
+    if (timing) {
+      setCumulativeTiming(prev => {
+        const newTotalFiles = prev.filesProcessed + timing.filesProcessed
+        const newTotalTime = prev.totalTime + timing.totalTime
+        const newClassificationTime = prev.classificationTime + timing.classificationTime
+        const newDecodeTime = prev.decodeTime + timing.decodeTime
+        const newAvgPerFile = newTotalFiles > 0 ? newClassificationTime / newTotalFiles : 0
+        
+        return {
+          totalTime: newTotalTime,
+          classificationTime: newClassificationTime,
+          decodeTime: newDecodeTime,
+          filesProcessed: newTotalFiles,
+          avgPerFile: newAvgPerFile
+        }
+      })
+    }
   }
 
   const clearResults = () => {
     setResults([])
+    setCumulativeTiming({
+      totalTime: 0,
+      classificationTime: 0,
+      decodeTime: 0,
+      filesProcessed: 0,
+      avgPerFile: 0
+    })
   }
 
   const downloadPDFSummary = () => {
     try {
-      const pdf = generatePDFSummary(results)
+      const pdf = generatePDFSummary(results, cumulativeTiming)
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5)
       pdf.save(`file-classification-summary-${timestamp}.pdf`)
     } catch (error) {

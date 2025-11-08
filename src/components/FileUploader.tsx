@@ -1,11 +1,11 @@
 import { useCallback, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { Upload, File as FileIcon, Loader2 } from 'lucide-react'
-import { FileData } from '../types'
+import { FileData, TimingData } from '../types'
 import JSZip from 'jszip'
 
 interface FileUploaderProps {
-  onFilesProcessed: (results: FileData[]) => void
+  onFilesProcessed: (results: FileData[], timing?: TimingData) => void
   processing: boolean
   setProcessing: (processing: boolean) => void
   selectedModel: string
@@ -185,8 +185,17 @@ const FileUploader = ({ onFilesProcessed, processing, setProcessing, selectedMod
             aiModel: selectedModel
           }))
           
+          // Extract timing data if available
+          const timingData: TimingData | undefined = data.timing ? {
+            totalTime: data.timing.total_time,
+            classificationTime: data.timing.classification_time,
+            decodeTime: data.timing.decode_time,
+            filesProcessed: data.timing.files_processed,
+            avgPerFile: data.timing.average_per_file
+          } : undefined
+          
           // Progressive results - show this batch immediately!
-          onFilesProcessed(batchResults)
+          onFilesProcessed(batchResults, timingData)
           console.log(`✅ Batch complete: ${batchResults.length} files added to display`)
         } else {
           console.error(`Batch ${Math.floor(i / BATCH_SIZE) + 1} failed:`, await response.text())
@@ -315,8 +324,17 @@ const FileUploader = ({ onFilesProcessed, processing, setProcessing, selectedMod
             aiModel: selectedModel
           }))
           
+          // Extract timing data if available
+          const timingData: TimingData | undefined = data.timing ? {
+            totalTime: data.timing.total_time,
+            classificationTime: data.timing.classification_time,
+            decodeTime: data.timing.decode_time,
+            filesProcessed: data.timing.files_processed,
+            avgPerFile: data.timing.average_per_file
+          } : undefined
+          
           // Progressive results - show this batch immediately!
-          onFilesProcessed(batchResults)
+          onFilesProcessed(batchResults, timingData)
         }
       } catch (error) {
         console.error('Batch classification error:', error)

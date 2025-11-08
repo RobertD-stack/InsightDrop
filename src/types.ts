@@ -20,3 +20,11 @@ export interface FileData {
   aiModel?: string  // Which AI model was used for classification
 }
 
+export interface TimingData {
+  totalTime: number
+  classificationTime: number
+  decodeTime: number
+  filesProcessed: number
+  avgPerFile: number
+}
+

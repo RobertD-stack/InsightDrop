@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf'
-import { FileData } from '../types'
+import { FileData, TimingData } from '../types'
 
-export const generatePDFSummary = (files: FileData[]) => {
+export const generatePDFSummary = (files: FileData[], timing?: TimingData) => {
   const doc = new jsPDF()
   
   // Title
@@ -137,6 +137,34 @@ export const generatePDFSummary = (files: FileData[]) => {
   yPos += 7
   doc.text(`Correct Predictions: ${correctPredictions} / ${totalFiles}`, 20, yPos)
   yPos += 12
+  
+  // Performance Metrics Section
+  if (timing && timing.filesProcessed > 0) {
+    doc.setFont(undefined, 'bold')
+    doc.setFontSize(12)
+    doc.setTextColor(0, 102, 204) // Blue color for performance section
+    doc.text('⏱ Performance Metrics', 20, yPos)
+    doc.setTextColor(0, 0, 0) // Reset to black
+    yPos += 8
+    
+    doc.setFont(undefined, 'normal')
+    doc.setFontSize(10)
+    
+    // Performance stats
+    doc.text(`Total Processing Time: ${timing.totalTime.toFixed(3)}s`, 20, yPos)
+    yPos += 6
+    doc.text(`Classification Time: ${timing.classificationTime.toFixed(3)}s`, 20, yPos)
+    yPos += 6
+    doc.text(`Base64 Decode Time: ${timing.decodeTime.toFixed(3)}s`, 20, yPos)
+    yPos += 6
+    doc.text(`Average Time per File: ${(timing.avgPerFile * 1000).toFixed(2)}ms`, 20, yPos)
+    yPos += 6
+    
+    // Throughput calculation
+    const throughput = timing.classificationTime > 0 ? timing.filesProcessed / timing.classificationTime : 0
+    doc.text(`Throughput: ${throughput.toFixed(2)} files/second`, 20, yPos)
+    yPos += 10
+  }
   
   // Highlight overall accuracy (vs filename extension)
   doc.setFont(undefined, 'bold')
