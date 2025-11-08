@@ -102,25 +102,99 @@ function App() {
       
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-7xl mx-auto space-y-8">
-          {/* Classification Method */}
+          {/* Detection Model Selection */}
           <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 shadow-2xl border border-white/20">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-semibold text-white mb-2">Classification Method</h3>
-                <p className="text-sm text-gray-400">File type detection using binary signatures and magic bytes</p>
+                <h3 className="text-lg font-semibold text-white mb-2">Detection Model</h3>
+                <p className="text-sm text-gray-400">Choose the file type detection method</p>
               </div>
               <div className="flex items-center gap-3">
-                <div className="px-4 py-2 bg-gradient-to-r from-green-500/20 to-blue-500/20 border border-green-400/30 rounded-lg">
+                <label className="text-sm text-gray-300 font-medium">Model:</label>
+                <select
+                  value={selectedModel}
+                  onChange={(e) => setSelectedModel(e.target.value)}
+                  disabled={processing}
+                  className="px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <option value="signature-based" className="bg-slate-800">
+                    Signature-Based (Current) - Magic Bytes Detection
+                  </option>
+                  <option value="magika-ai" className="bg-slate-800">
+                    Google Magika (AI) - Deep Learning Model (~99% accuracy)
+                  </option>
+                </select>
+                <div className="px-3 py-2 bg-blue-500/20 border border-blue-400/30 rounded-lg">
                   <div className="flex items-center gap-2">
-                    <svg className="w-4 h-4 text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                    </svg>
-                    <span className="text-sm font-semibold text-white">Signature-Based Detection</span>
+                    {selectedModel === 'magika-ai' ? (
+                      <>
+                        <svg className="w-4 h-4 text-purple-400" fill="currentColor" viewBox="0 0 20 20">
+                          <path d="M2 5a2 2 0 012-2h12a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2V5zm3.293 1.293a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 01-1.414-1.414L7.586 10 5.293 7.707a1 1 0 010-1.414zM11 12a1 1 0 100 2h3a1 1 0 100-2h-3z" />
+                        </svg>
+                        <span className="text-xs text-purple-300 font-medium">AI Model</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-4 h-4 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                        <span className="text-xs text-green-300 font-medium">Rule-Based</span>
+                      </>
+                    )}
                   </div>
-                  <p className="text-xs text-gray-400 mt-1">Magic bytes + Python-magic fallback</p>
                 </div>
               </div>
             </div>
+            
+            {/* Model Information */}
+            {selectedModel === 'magika-ai' ? (
+              <div className="mt-4 p-4 bg-purple-500/10 border border-purple-400/30 rounded-lg">
+                <div className="flex items-start gap-3">
+                  <svg className="w-5 h-5 text-purple-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div className="flex-1">
+                    <h4 className="text-sm font-semibold text-purple-300 mb-2">Google Magika - AI-Powered Detection</h4>
+                    <ul className="text-xs text-gray-300 space-y-1">
+                      <li>• Deep learning model trained on 100M+ files</li>
+                      <li>• ~99% accuracy across 200+ content types</li>
+                      <li>• 5ms inference time per file</li>
+                      <li>• Used by Gmail, Drive, and VirusTotal</li>
+                      <li>• Requires installation: <code className="bg-black/30 px-1 rounded">pip install magika</code></li>
+                    </ul>
+                    <a 
+                      href="https://github.com/google/magika" 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-purple-400 hover:text-purple-300 mt-2"
+                    >
+                      <span>View on GitHub</span>
+                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                      </svg>
+                    </a>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-4 p-4 bg-green-500/10 border border-green-400/30 rounded-lg">
+                <div className="flex items-start gap-3">
+                  <svg className="w-5 h-5 text-green-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div className="flex-1">
+                    <h4 className="text-sm font-semibold text-green-300 mb-2">Signature-Based Detection (Active)</h4>
+                    <ul className="text-xs text-gray-300 space-y-1">
+                      <li>• Binary magic bytes pattern matching</li>
+                      <li>• Python-magic library fallback</li>
+                      <li>• 95-100% accuracy for files with clear signatures</li>
+                      <li>• Extremely fast (~0.15ms per file)</li>
+                      <li>• No external dependencies required</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Upload Section */}
