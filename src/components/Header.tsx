@@ -22,7 +22,7 @@ const Header = () => {
             <div className="text-right">
               <p className="text-sm text-gray-400">Powered by</p>
               <p className="text-sm font-semibold text-primary-400">
-                AI & Machine Learning
+                The A Team
               </p>
             </div>
           </div>
