@@ -1,9 +1,7 @@
-// React import needed for JSX transform
-import React, { useCallback, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { Upload, File as FileIcon, Loader2 } from 'lucide-react'
 import { FileData } from '../types'
-import JSZip from 'jszip'
 
 interface FileUploaderProps {
   onFilesProcessed: (results: FileData[]) => void
@@ -43,34 +41,6 @@ const FileUploader = ({ onFilesProcessed, processing, setProcessing }: FileUploa
       reader.onerror = reject
       reader.readAsDataURL(blob)
     })
-  }
-
-  const classifyFile = async (filename: string, binaryData: Uint8Array): Promise<any> => {
-    try {
-      // Convert Uint8Array to base64 safely (handles large files including EXEs)
-      const base64 = await uint8ArrayToBase64(binaryData)
-      
-      const response = await fetch('http://localhost:5000/api/classify', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          filename,
-          binaryData: base64
-        })
-      })
-
-      if (!response.ok) {
-        throw new Error(`Classification failed: ${response.statusText}`)
-      }
-
-      const data = await response.json()
-      return data.result
-    } catch (error) {
-      console.error('Classification error:', error)
-      return null
-    }
   }
 
   const getMimeType = (filename: string): string => {
@@ -114,136 +84,182 @@ const FileUploader = ({ onFilesProcessed, processing, setProcessing }: FileUploa
     return mimeTypes[ext || ''] || 'application/octet-stream'
   }
 
-  const analyzeZipFile = async (file: File, zipFileName: string): Promise<FileData[]> => {
-    const results: FileData[] = []
-    
+  const classifyZipServerSide = async (file: File, zipFileName: string): Promise<FileData[]> => {
+    // Server-side ZIP processing - fast for large ZIPs!
     try {
       const arrayBuffer = await file.arrayBuffer()
-      const zip = await JSZip.loadAsync(arrayBuffer)
+      const base64 = await uint8ArrayToBase64(new Uint8Array(arrayBuffer))
       
-      // Get all file entries
-      const fileEntries = Object.entries(zip.files)
-      let processedCount = 0
+      setUploadProgress(prev => ({ ...prev, [zipFileName]: 50 }))
       
-      for (const [path, zipEntry] of fileEntries) {
-        // Skip directories
-        if (zipEntry.dir) continue
-        
-        // Update progress for zip extraction
-        processedCount++
-        const progress = Math.floor((processedCount / fileEntries.length) * 100)
-        setUploadProgress(prev => ({ 
-          ...prev, 
-          [zipFileName]: Math.min(progress, 95) 
-        }))
-        
-        // Extract file as binary
-        const binaryData = await zipEntry.async('uint8array')
-        
-        // Parse folder path
-        const pathParts = path.split('/')
+      const response = await fetch('http://localhost:5000/api/classify-zip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ zipData: base64 })
+      })
+
+      if (!response.ok) {
+        throw new Error(`ZIP classification failed: ${response.statusText}`)
+      }
+
+      const data = await response.json()
+      setUploadProgress(prev => ({ ...prev, [zipFileName]: 100 }))
+      
+      // Convert results to FileData format
+      return data.results.map((result: any) => {
+        const pathParts = result.original_path.split('/')
         const filename = pathParts[pathParts.length - 1]
         const folderPath = pathParts.slice(0, -1).join('/')
         
-        // Classify the extracted file
-        const classification = await classifyFile(filename, binaryData)
-        
-        results.push({
+        return {
           id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           filename: filename,
-          size: binaryData.length,
+          size: result.metadata?.file_size || 0,
           type: getMimeType(filename),
           timestamp: new Date().toISOString(),
           isFromZip: true,
           zipSource: zipFileName,
           folderPath: folderPath || undefined,
-          // Add classification results
-          ...(classification && {
-            filetype: classification.filetype,
-            content_category: classification.content_category,
-            confidence_score: classification.confidence_score,
-            mime_type: classification.mime_type,
-            encoding: classification.encoding,
-            language: classification.language,
-            metadata: classification.metadata
-          })
-        })
+          filetype: result.filetype,
+          content_category: result.content_category,
+          confidence_score: result.confidence_score,
+          mime_type: result.mime_type,
+          encoding: result.encoding,
+          language: result.language,
+          metadata: result.metadata
+        }
+      })
+    } catch (error) {
+      console.error('Error with server-side ZIP processing:', error)
+      return []
+    }
+  }
+
+  const analyzeZipFile = async (file: File, zipFileName: string): Promise<void> => {
+    // Use server-side processing for all ZIPs (much faster!)
+    try {
+      setUploadProgress(prev => ({ ...prev, [zipFileName]: 10 }))
+      
+      const results = await classifyZipServerSide(file, zipFileName)
+      
+      // Progressive results - show immediately!
+      if (results.length > 0) {
+        onFilesProcessed(results)
       }
       
       setUploadProgress(prev => ({ ...prev, [zipFileName]: 100 }))
     } catch (error) {
       console.error('Error analyzing zip:', error)
     }
-    
-    return results
   }
 
   const processFiles = async (files: File[]) => {
     setProcessing(true)
-    const results: FileData[] = []
+    const BATCH_SIZE = 10  // Process 10 files per batch
 
-    for (const file of files) {
-      // Show upload progress
-      setUploadProgress(prev => ({ ...prev, [file.name]: 0 }))
+    // Separate ZIP files from regular files
+    const zipFiles = files.filter(f => 
+      f.name.toLowerCase().endsWith('.zip') || 
+      f.type === 'application/zip' ||
+      f.type === 'application/x-zip-compressed'
+    )
+    const regularFiles = files.filter(f => !zipFiles.includes(f))
+
+    // Process ZIP files (server-side extraction and classification)
+    for (const zipFile of zipFiles) {
+      setUploadProgress(prev => ({ ...prev, [zipFile.name]: 0 }))
       
-      // Check if it's a zip file
-      const isZipFile = file.name.toLowerCase().endsWith('.zip') || 
-                        file.type === 'application/zip' ||
-                        file.type === 'application/x-zip-compressed'
-      
-      if (isZipFile) {
-        // Extract and analyze all files inside the zip
-        setUploadProgress(prev => ({ ...prev, [file.name]: 10 }))
-        const zipFiles = await analyzeZipFile(file, file.name)
-        results.push(...zipFiles)
-        
-        // Small delay to show completion
-        await new Promise(resolve => setTimeout(resolve, 200))
-      } else {
-        // Regular file - convert to binary and classify
-        setUploadProgress(prev => ({ ...prev, [file.name]: 30 }))
-        
-        const binaryData = await convertFileToBinary(file)
-        
-        setUploadProgress(prev => ({ ...prev, [file.name]: 60 }))
-        
-        // Classify file using AI
-        const classification = await classifyFile(file.name, binaryData)
-        
-        setUploadProgress(prev => ({ ...prev, [file.name]: 100 }))
-        
-        // Create result object with classification
-        const result: FileData = {
-          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          filename: file.name,
-          size: file.size,
-          type: file.type || getMimeType(file.name),
-          timestamp: new Date().toISOString(),
-          // Add classification results
-          ...(classification && {
-            filetype: classification.filetype,
-            content_category: classification.content_category,
-            confidence_score: classification.confidence_score,
-            mime_type: classification.mime_type,
-            encoding: classification.encoding,
-            language: classification.language,
-            metadata: classification.metadata
-          })
-        }
-        
-        results.push(result)
-        
-        await new Promise(resolve => setTimeout(resolve, 100))
-      }
+      // Server-side processing - returns results automatically
+      await analyzeZipFile(zipFile, zipFile.name)
       
       setUploadProgress(prev => {
         const newProgress = { ...prev }
-        delete newProgress[file.name]
+        delete newProgress[zipFile.name]
         return newProgress
       })
     }
 
-    onFilesProcessed(results)
+    // Process regular files in batches with progressive results
+    for (let i = 0; i < regularFiles.length; i += BATCH_SIZE) {
+      const batch = regularFiles.slice(i, i + BATCH_SIZE)
+      
+      // Show progress for each file in batch
+      batch.forEach(file => {
+        setUploadProgress(prev => ({ ...prev, [file.name]: 0 }))
+      })
+      
+      // Convert all files in batch to binary
+      const batchData = await Promise.all(
+        batch.map(async file => {
+          setUploadProgress(prev => ({ ...prev, [file.name]: 50 }))
+          const binaryData = await convertFileToBinary(file)
+          return { file, binaryData }
+        })
+      )
+      
+      // Prepare for batch classification
+      const filesToClassify = batchData.map(({ file, binaryData }) => ({
+        filename: file.name,
+        binaryData: binaryData,
+        size: file.size,
+        type: file.type || getMimeType(file.name)
+      }))
+      
+      // Convert to base64 and classify batch
+      const filesData = await Promise.all(
+        filesToClassify.map(async f => ({
+          filename: f.filename,
+          binaryData: await uint8ArrayToBase64(f.binaryData)
+        }))
+      )
+      
+      batch.forEach(file => {
+        setUploadProgress(prev => ({ ...prev, [file.name]: 80 }))
+      })
+      
+      try {
+        const response = await fetch('http://localhost:5000/api/classify-batch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ files: filesData })
+        })
+
+        if (response.ok) {
+          const data = await response.json()
+          
+          // Convert to FileData format
+          const batchResults = data.results.map((result: any, index: number) => ({
+            id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            filename: filesToClassify[index].filename,
+            size: filesToClassify[index].size,
+            type: filesToClassify[index].type,
+            timestamp: new Date().toISOString(),
+            filetype: result.filetype,
+            content_category: result.content_category,
+            confidence_score: result.confidence_score,
+            mime_type: result.mime_type,
+            encoding: result.encoding,
+            language: result.language,
+            metadata: result.metadata
+          }))
+          
+          // Progressive results - show this batch immediately!
+          onFilesProcessed(batchResults)
+        }
+      } catch (error) {
+        console.error('Batch classification error:', error)
+      }
+      
+      // Clear progress for this batch
+      batch.forEach(file => {
+        setUploadProgress(prev => {
+          const newProgress = { ...prev }
+          delete newProgress[file.name]
+          return newProgress
+        })
+      })
+    }
+
     setProcessing(false)
   }
 

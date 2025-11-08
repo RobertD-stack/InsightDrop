@@ -81,6 +81,62 @@ def classify_batch():
             'error': str(e)
         }), 500
 
+@app.route('/api/classify-zip', methods=['POST'])
+def classify_zip():
+    """
+    Endpoint to classify all files in a ZIP archive (server-side extraction)
+    Expects: { zipData: base64 string }
+    Returns: array of classification results
+    """
+    try:
+        import zipfile
+        import io
+        
+        data = request.json
+        zip_base64 = data.get('zipData')
+        
+        if not zip_base64:
+            return jsonify({'error': 'Missing zipData'}), 400
+        
+        # Decode ZIP
+        zip_data = base64.b64decode(zip_base64)
+        zip_file = zipfile.ZipFile(io.BytesIO(zip_data))
+        
+        results = []
+        for file_info in zip_file.filelist:
+            if file_info.is_dir():
+                continue
+            
+            try:
+                # Extract and classify file
+                file_data = zip_file.read(file_info.filename)
+                result = pipeline.process_file(file_data, file_info.filename)
+                
+                result_dict = result.to_dict()
+                result_dict['original_path'] = file_info.filename
+                results.append(result_dict)
+            except Exception as e:
+                # Continue processing other files even if one fails
+                print(f"Error processing {file_info.filename}: {e}")
+                results.append({
+                    'filetype': 'error',
+                    'content_category': 'unknown',
+                    'confidence_score': 0.0,
+                    'metadata': {'error': str(e), 'filename': file_info.filename}
+                })
+        
+        return jsonify({
+            'success': True,
+            'results': results,
+            'total_processed': len(results)
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @app.route('/api/health', methods=['GET'])
 def health():
     """Health check endpoint"""
@@ -91,7 +147,8 @@ if __name__ == '__main__':
     print("Server running on http://localhost:5000")
     print("Endpoints:")
     print("  POST /api/classify - Classify single file")
-    print("  POST /api/classify-batch - Classify multiple files")
+    print("  POST /api/classify-batch - Classify multiple files (batch)")
+    print("  POST /api/classify-zip - Classify all files in ZIP (server-side)")
     print("  GET  /api/health - Health check")
     app.run(debug=True, port=5000)
 
