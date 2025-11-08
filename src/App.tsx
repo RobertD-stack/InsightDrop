@@ -102,28 +102,22 @@ function App() {
       
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-7xl mx-auto space-y-8">
-          {/* Model Selection */}
+          {/* Classification Method */}
           <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 shadow-2xl border border-white/20">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-semibold text-white mb-2">AI Model Selection</h3>
-                <p className="text-sm text-gray-400">Choose the classification model to use</p>
+                <h3 className="text-lg font-semibold text-white mb-2">Classification Method</h3>
+                <p className="text-sm text-gray-400">File type detection using binary signatures and magic bytes</p>
               </div>
               <div className="flex items-center gap-3">
-                <label className="text-sm text-gray-300 font-medium">Model:</label>
-                <select
-                  value={selectedModel}
-                  onChange={(e) => setSelectedModel(e.target.value)}
-                  disabled={processing}
-                  className="px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <option value="signature-based" className="bg-slate-800">Signature-Based (Fast)</option>
-                  <option value="magic-library" className="bg-slate-800">Magic Library (Accurate)</option>
-                  <option value="hybrid" className="bg-slate-800">Hybrid (Balanced)</option>
-                  <option value="ml-enhanced" className="bg-slate-800">ML-Enhanced (Experimental)</option>
-                </select>
-                <div className="px-3 py-2 bg-blue-500/20 border border-blue-400/30 rounded-lg">
-                  <span className="text-xs text-blue-300 font-medium">Current: {selectedModel}</span>
+                <div className="px-4 py-2 bg-gradient-to-r from-green-500/20 to-blue-500/20 border border-green-400/30 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                    <span className="text-sm font-semibold text-white">Signature-Based Detection</span>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">Magic bytes + Python-magic fallback</p>
                 </div>
               </div>
             </div>
