@@ -35,16 +35,35 @@ class FileClassificationPipeline:
         )
         
         # Step 4: Detect PII (Stretch Goal)
-        # Only scan text-based files for PII (not binary media files)
+        # Scan text-based files AND images (using OCR) for PII
         pii_summary = None
         text_based_types = ['txt', 'csv', 'json', 'xml', 'html', 'pdf', 'doc', 'docx', 
                            'xls', 'xlsx', 'log', 'md', 'yaml', 'yml', 'sql', 'py', 'js',
                            'java', 'cpp', 'c', 'h', 'php', 'rb', 'go', 'rs', 'sql']
+        image_types = ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'tiff', 'webp']
         
-        if type_result['type'] in text_based_types or content_category in ['document', 'structured', 'code']:
+        # Scan for PII in:
+        # 1. Text-based files (documents, code, structured data)
+        # 2. Images (using OCR to extract text)
+        should_scan = (
+            type_result['type'] in text_based_types or 
+            type_result['type'] in image_types or
+            content_category in ['document', 'structured', 'code', 'image']
+        )
+        
+        if should_scan:
             try:
-                pii_detections = self.pii_detector.detect_in_binary(binary_data)
+                # Pass file type for better OCR handling
+                pii_detections = self.pii_detector.detect_in_binary(
+                    binary_data, 
+                    file_type=type_result['type']
+                )
                 pii_summary = self.pii_detector.summarize(pii_detections)
+                
+                # Add note if OCR was used for images
+                if type_result['type'] in image_types and pii_summary.get('has_pii'):
+                    pii_summary['ocr_used'] = True
+                    pii_summary['detection_method'] = 'OCR (Optical Character Recognition)'
             except Exception as e:
                 # PII detection failed, continue without it
                 print(f"PII detection warning for {filename}: {e}")

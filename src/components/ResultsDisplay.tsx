@@ -1,6 +1,6 @@
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import { FileData } from '../types'
-import { File, Binary, ChevronDown, ChevronUp, Archive, Folder } from 'lucide-react'
+import { File, Binary, ChevronDown, ChevronUp, Archive, Folder, Shield, ShieldAlert } from 'lucide-react'
 
 interface ResultsDisplayProps {
   results: FileData[]
@@ -165,6 +165,11 @@ const FileCard = ({ file }: { file: FileData }) => {
                         <span className={file.metadata.pii_detection.has_pii ? 'text-red-400 font-bold' : 'text-green-400'}>
                           {file.metadata.pii_detection.has_pii ? 'PII Found' : 'No PII Detected'}
                         </span>
+                        {file.metadata.pii_detection.ocr_used && (
+                          <span className="ml-2 text-xs text-blue-400">
+                            (via OCR - Image text extraction)
+                          </span>
+                        )}
                       </p>
                       {file.metadata.pii_detection.has_pii && (
                         <>
@@ -176,6 +181,11 @@ const FileCard = ({ file }: { file: FileData }) => {
                             <span className="text-gray-400">High Confidence:</span>{' '}
                             <span className="text-yellow-400">{file.metadata.pii_detection.high_confidence_count}</span>
                           </p>
+                          {file.metadata.pii_detection.detection_method && (
+                            <p className="text-xs text-blue-300">
+                              Method: {file.metadata.pii_detection.detection_method}
+                            </p>
+                          )}
                           {file.metadata.pii_detection.by_type && (
                             <div className="mt-2">
                               <p className="text-xs text-gray-400 mb-1">Breakdown by Type:</p>
@@ -212,11 +222,130 @@ const FileCard = ({ file }: { file: FileData }) => {
 }
 
 const ResultsDisplay = ({ results }: ResultsDisplayProps) => {
+  const [activeTab, setActiveTab] = useState<'all' | 'pii' | 'safe'>('all')
+  
+  // Separate files with PII from those without
+  const { filesWithPII, filesWithoutPII } = useMemo(() => {
+    const withPII: FileData[] = []
+    const withoutPII: FileData[] = []
+    
+    results.forEach(file => {
+      const hasPII = file.metadata?.pii_detection?.has_pii === true
+      if (hasPII) {
+        withPII.push(file)
+      } else {
+        withoutPII.push(file)
+      }
+    })
+    
+    return { filesWithPII: withPII, filesWithoutPII: withoutPII }
+  }, [results])
+  
+  const getDisplayedFiles = () => {
+    switch (activeTab) {
+      case 'pii':
+        return filesWithPII
+      case 'safe':
+        return filesWithoutPII
+      default:
+        return results
+    }
+  }
+  
   return (
     <div className="space-y-4">
-      {results.map((file) => (
-        <FileCard key={file.id} file={file} />
-      ))}
+      {/* Summary Banner */}
+      <div className="bg-gradient-to-r from-purple-500/20 to-blue-500/20 border border-purple-400/30 rounded-xl p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <div className="text-center">
+              <p className="text-2xl font-bold text-white">{results.length}</p>
+              <p className="text-xs text-gray-400">Total Files</p>
+            </div>
+            <div className="h-12 w-px bg-white/20"></div>
+            <div className="text-center">
+              <p className="text-2xl font-bold text-red-400">{filesWithPII.length}</p>
+              <p className="text-xs text-gray-400">With PII</p>
+            </div>
+            <div className="h-12 w-px bg-white/20"></div>
+            <div className="text-center">
+              <p className="text-2xl font-bold text-green-400">{filesWithoutPII.length}</p>
+              <p className="text-xs text-gray-400">Safe Files</p>
+            </div>
+          </div>
+          <div className="flex items-center space-x-2">
+            {filesWithPII.length > 0 ? (
+              <div className="flex items-center space-x-2 text-red-400">
+                <ShieldAlert className="w-5 h-5" />
+                <span className="text-sm font-semibold">PII Detected</span>
+              </div>
+            ) : (
+              <div className="flex items-center space-x-2 text-green-400">
+                <Shield className="w-5 h-5" />
+                <span className="text-sm font-semibold">No PII Detected</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+      
+      {/* Tabs */}
+      <div className="flex space-x-2 border-b border-white/10">
+        <button
+          onClick={() => setActiveTab('all')}
+          className={`px-4 py-2 text-sm font-medium transition-colors ${
+            activeTab === 'all'
+              ? 'text-blue-400 border-b-2 border-blue-400'
+              : 'text-gray-400 hover:text-gray-300'
+          }`}
+        >
+          All Files ({results.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('pii')}
+          className={`px-4 py-2 text-sm font-medium transition-colors relative ${
+            activeTab === 'pii'
+              ? 'text-red-400 border-b-2 border-red-400'
+              : 'text-gray-400 hover:text-gray-300'
+          }`}
+        >
+          <span className="flex items-center space-x-2">
+            <ShieldAlert className="w-4 h-4" />
+            <span>Files with PII ({filesWithPII.length})</span>
+            {filesWithPII.length > 0 && (
+              <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
+                {filesWithPII.length}
+              </span>
+            )}
+          </span>
+        </button>
+        <button
+          onClick={() => setActiveTab('safe')}
+          className={`px-4 py-2 text-sm font-medium transition-colors ${
+            activeTab === 'safe'
+              ? 'text-green-400 border-b-2 border-green-400'
+              : 'text-gray-400 hover:text-gray-300'
+          }`}
+        >
+          <span className="flex items-center space-x-2">
+            <Shield className="w-4 h-4" />
+            <span>Safe Files ({filesWithoutPII.length})</span>
+          </span>
+        </button>
+      </div>
+      
+      {/* Files List */}
+      {getDisplayedFiles().length > 0 ? (
+        <div className="space-y-4">
+          {getDisplayedFiles().map((file) => (
+            <FileCard key={file.id} file={file} />
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-12 text-gray-400">
+          <p>No files in this category</p>
+        </div>
+      )}
     </div>
   )
 }

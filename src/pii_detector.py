@@ -255,19 +255,71 @@ class PIIDetector:
         
         return unique_detections
     
-    def detect_in_binary(self, binary_data: bytes) -> List[PIIDetection]:
+    def extract_text_from_image(self, binary_data: bytes) -> str:
         """
-        Detect PII in binary data by attempting to decode as text
+        Extract text from image using OCR
+        
+        Args:
+            binary_data: Image file data
+        
+        Returns:
+            Extracted text string
+        """
+        try:
+            from PIL import Image
+            import pytesseract
+            import io
+            
+            # Open image from bytes
+            image = Image.open(io.BytesIO(binary_data))
+            
+            # Perform OCR with error handling
+            try:
+                text = pytesseract.image_to_string(image)
+                return text
+            except pytesseract.TesseractNotFoundError:
+                # Tesseract not installed on system
+                print("OCR: Tesseract not found. Install tesseract-ocr to enable image PII detection.")
+                return ""
+            except Exception as e:
+                print(f"OCR warning: {e}")
+                return ""
+        except ImportError:
+            # pytesseract Python package not available
+            print("OCR: pytesseract package not installed. Install with: pip install pytesseract")
+            return ""
+        except Exception as e:
+            # OCR failed, return empty
+            print(f"OCR warning: {e}")
+            return ""
+    
+    def detect_in_binary(self, binary_data: bytes, file_type: str = None) -> List[PIIDetection]:
+        """
+        Detect PII in binary data by attempting to decode as text or extract from images
         
         Args:
             binary_data: Binary file data
+            file_type: Optional file type hint (e.g., 'png', 'jpg', 'pdf')
         
         Returns:
             List of PIIDetection objects
         """
         detections = []
         
-        # Try multiple encodings
+        # Check if it's an image that might contain text
+        image_types = ['png', 'jpg', 'jpeg', 'gif', 'bmp', 'tiff', 'webp']
+        if file_type and file_type.lower() in image_types:
+            # Try OCR first for images
+            try:
+                text_content = self.extract_text_from_image(binary_data)
+                if text_content and len(text_content.strip()) > 10:  # Only if we got meaningful text
+                    detections = self.detect(text_content)
+                    if detections:
+                        return detections
+            except Exception as e:
+                print(f"OCR extraction failed: {e}")
+        
+        # Try multiple encodings for text-based files
         encodings = ['utf-8', 'latin-1', 'iso-8859-1', 'cp1252', 'ascii']
         
         for encoding in encodings:
