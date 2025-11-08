@@ -109,7 +109,7 @@ class FileTypeIdentifier:
             b'\xFF\xF3': 'mp3',
             b'\xFF\xF2': 'mp3',
             b'RIFF': 'wav',  # Check further for WAV
-            b'ftyp': 'mp4',  # Usually at offset 4
+            # Note: MP4 'ftyp' signature is at offset 4, checked separately below
         }
         
         # Check signatures
@@ -121,7 +121,8 @@ class FileTypeIdentifier:
                 return filetype
         
         # Check for MP4 (signature at offset 4)
-        if len(binary_data) >= 12 and b'ftyp' in binary_data[4:12]:
+        # MP4 files have 'ftyp' box starting at byte 4
+        if len(binary_data) >= 8 and b'ftyp' == binary_data[4:8]:
             return 'mp4'
         
         # Check for RIFF-based formats (WAV, AVI)
