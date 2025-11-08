@@ -87,8 +87,13 @@ const FileUploader = ({ onFilesProcessed, processing, setProcessing }: FileUploa
   const classifyZipServerSide = async (file: File, zipFileName: string): Promise<FileData[]> => {
     // Server-side ZIP processing - fast for large ZIPs!
     try {
+      console.log(`Starting ZIP processing for: ${zipFileName} (${(file.size / 1024 / 1024).toFixed(2)} MB)`)
+      
       const arrayBuffer = await file.arrayBuffer()
+      console.log('ZIP file loaded into memory, converting to base64...')
+      
       const base64 = await uint8ArrayToBase64(new Uint8Array(arrayBuffer))
+      console.log(`Base64 conversion complete (${base64.length} chars), sending to server...`)
       
       setUploadProgress(prev => ({ ...prev, [zipFileName]: 50 }))
       
@@ -98,16 +103,22 @@ const FileUploader = ({ onFilesProcessed, processing, setProcessing }: FileUploa
         body: JSON.stringify({ zipData: base64 })
       })
 
+      console.log(`Server responded with status: ${response.status}`)
+
       if (!response.ok) {
-        throw new Error(`ZIP classification failed: ${response.statusText}`)
+        const errorText = await response.text()
+        console.error('Server error response:', errorText)
+        throw new Error(`ZIP classification failed: ${response.statusText} - ${errorText}`)
       }
 
       const data = await response.json()
+      console.log(`Successfully processed ZIP: ${data.total_processed} files`)
+      
       setUploadProgress(prev => ({ ...prev, [zipFileName]: 100 }))
       
       // Convert results to FileData format
-      return data.results.map((result: any) => {
-        const pathParts = result.original_path.split('/')
+      const formattedResults = data.results.map((result: any) => {
+        const pathParts = result.original_path?.split('/') || [result.metadata?.filename || 'unknown']
         const filename = pathParts[pathParts.length - 1]
         const folderPath = pathParts.slice(0, -1).join('/')
         
@@ -129,8 +140,12 @@ const FileUploader = ({ onFilesProcessed, processing, setProcessing }: FileUploa
           metadata: result.metadata
         }
       })
+      
+      console.log(`Formatted ${formattedResults.length} results for display`)
+      return formattedResults
     } catch (error) {
-      console.error('Error with server-side ZIP processing:', error)
+      console.error('❌ Error with server-side ZIP processing:', error)
+      alert(`Failed to process ZIP file: ${error instanceof Error ? error.message : 'Unknown error'}`)
       return []
     }
   }

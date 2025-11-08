@@ -92,20 +92,38 @@ def classify_zip():
         import zipfile
         import io
         
+        print("\n" + "="*60)
+        print("📦 ZIP CLASSIFICATION REQUEST RECEIVED")
+        print("="*60)
+        
         data = request.json
         zip_base64 = data.get('zipData')
         
         if not zip_base64:
+            print("❌ Error: Missing zipData in request")
             return jsonify({'error': 'Missing zipData'}), 400
+        
+        print(f"✅ Received base64 data: {len(zip_base64)} characters")
         
         # Decode ZIP
         zip_data = base64.b64decode(zip_base64)
+        print(f"✅ Decoded ZIP size: {len(zip_data) / 1024 / 1024:.2f} MB")
+        
         zip_file = zipfile.ZipFile(io.BytesIO(zip_data))
+        file_list = zip_file.filelist
+        total_files = sum(1 for f in file_list if not f.is_dir())
+        print(f"✅ ZIP contains {total_files} files (excluding directories)")
         
         results = []
-        for file_info in zip_file.filelist:
+        processed = 0
+        
+        for file_info in file_list:
             if file_info.is_dir():
                 continue
+            
+            processed += 1
+            if processed % 100 == 0 or processed == 1:
+                print(f"  Processing file {processed}/{total_files}: {file_info.filename}")
             
             try:
                 # Extract and classify file
@@ -117,13 +135,17 @@ def classify_zip():
                 results.append(result_dict)
             except Exception as e:
                 # Continue processing other files even if one fails
-                print(f"Error processing {file_info.filename}: {e}")
+                print(f"⚠️  Error processing {file_info.filename}: {e}")
                 results.append({
                     'filetype': 'error',
                     'content_category': 'unknown',
                     'confidence_score': 0.0,
-                    'metadata': {'error': str(e), 'filename': file_info.filename}
+                    'metadata': {'error': str(e), 'filename': file_info.filename},
+                    'original_path': file_info.filename
                 })
+        
+        print(f"✅ Successfully processed {len(results)} files")
+        print("="*60 + "\n")
         
         return jsonify({
             'success': True,
@@ -132,6 +154,9 @@ def classify_zip():
         })
         
     except Exception as e:
+        print(f"❌ CRITICAL ERROR in classify_zip: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
             'error': str(e)
