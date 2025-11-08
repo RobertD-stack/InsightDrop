@@ -89,19 +89,52 @@ const FileUploader = ({ onFilesProcessed, processing, setProcessing }: FileUploa
     try {
       console.log(`Starting ZIP processing for: ${zipFileName} (${(file.size / 1024 / 1024).toFixed(2)} MB)`)
       
+      // Validate file size
+      if (file.size === 0) {
+        throw new Error('File is empty (0 bytes)')
+      }
+      
+      if (file.size > 500 * 1024 * 1024) { // 500MB limit
+        throw new Error('File is too large (max 500MB)')
+      }
+      
       const arrayBuffer = await file.arrayBuffer()
-      console.log('ZIP file loaded into memory, converting to base64...')
+      console.log(`ZIP file loaded into memory: ${arrayBuffer.byteLength} bytes`)
+      
+      if (arrayBuffer.byteLength === 0) {
+        throw new Error('File buffer is empty after reading')
+      }
+      
+      // Check ZIP signature in the file
+      const firstBytes = new Uint8Array(arrayBuffer.slice(0, 4))
+      const signature = String.fromCharCode(...firstBytes.slice(0, 2))
+      console.log(`File signature check: First 2 bytes = "${signature}" (hex: ${Array.from(firstBytes.slice(0, 2)).map(b => b.toString(16).padStart(2, '0')).join(' ')})`)
+      
+      if (signature !== 'PK') {
+        console.warn(`⚠️ Warning: File does not have ZIP signature "PK". It starts with: "${signature}"`)
+      }
       
       const base64 = await uint8ArrayToBase64(new Uint8Array(arrayBuffer))
-      console.log(`Base64 conversion complete (${base64.length} chars), sending to server...`)
+      console.log(`Base64 conversion complete: ${base64.length} chars (expected ~${Math.ceil(arrayBuffer.byteLength * 4 / 3)} chars)`)
+      
+      if (base64.length < 10) {
+        throw new Error(`Base64 encoding seems incorrect (only ${base64.length} characters)`)
+      }
       
       setUploadProgress(prev => ({ ...prev, [zipFileName]: 50 }))
       
-      const response = await fetch('http://localhost:5000/api/classify-zip', {
+      // Create AbortController with extended timeout for large batches (5000+ files)
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 30 * 60 * 1000) // 30 minute timeout
+      
+      const response = await fetch('http://localhost:5001/api/classify-zip', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ zipData: base64 })
+        body: JSON.stringify({ zipData: base64 }),
+        signal: controller.signal
       })
+      
+      clearTimeout(timeoutId)
 
       console.log(`Server responded with status: ${response.status}`)
 
@@ -145,7 +178,52 @@ const FileUploader = ({ onFilesProcessed, processing, setProcessing }: FileUploa
       return formattedResults
     } catch (error) {
       console.error('❌ Error with server-side ZIP processing:', error)
-      alert(`Failed to process ZIP file: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      
+      // If ZIP processing fails, try processing as a regular file instead
+      console.log('⚠️ ZIP processing failed, attempting to process as regular file...')
+      try {
+        const binaryData = await convertFileToBinary(file)
+        const base64 = await uint8ArrayToBase64(binaryData)
+        
+        const response = await fetch('http://localhost:5001/api/classify-batch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            files: [{
+              filename: zipFileName,
+              binaryData: base64
+            }]
+          })
+        })
+        
+        if (response.ok) {
+          const data = await response.json()
+          if (data.results && data.results.length > 0) {
+            const result = data.results[0]
+            const formattedResult = {
+              id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              filename: zipFileName,
+              size: file.size,
+              type: getMimeType(zipFileName),
+              timestamp: new Date().toISOString(),
+              isFromZip: false,
+              filetype: result.filetype,
+              content_category: result.content_category,
+              confidence_score: result.confidence_score,
+              mime_type: result.mime_type,
+              encoding: result.encoding,
+              language: result.language,
+              metadata: result.metadata
+            }
+            console.log('✅ Successfully processed as regular file instead')
+            return [formattedResult]
+          }
+        }
+      } catch (fallbackError) {
+        console.error('❌ Fallback processing also failed:', fallbackError)
+      }
+      
+      alert(`Failed to process file "${zipFileName}": ${error instanceof Error ? error.message : 'Unknown error'}\n\nThe file may not be a valid ZIP archive. If it has a .zip extension but isn't working, try renaming it or checking if it's corrupted.`)
       return []
     }
   }
@@ -170,7 +248,7 @@ const FileUploader = ({ onFilesProcessed, processing, setProcessing }: FileUploa
 
   const processFiles = async (files: File[]) => {
     setProcessing(true)
-    const BATCH_SIZE = 10  // Process 10 files per batch
+    const BATCH_SIZE = 100  // Process up to 100 files per batch (increased for bulk uploads)
 
     // Separate ZIP files from regular files
     const zipFiles = files.filter(f => 
@@ -233,7 +311,7 @@ const FileUploader = ({ onFilesProcessed, processing, setProcessing }: FileUploa
       })
       
       try {
-        const response = await fetch('http://localhost:5000/api/classify-batch', {
+        const response = await fetch('http://localhost:5001/api/classify-batch', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ files: filesData })
@@ -287,6 +365,8 @@ const FileUploader = ({ onFilesProcessed, processing, setProcessing }: FileUploa
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     disabled: processing,
+    multiple: true, // Explicitly allow multiple files
+    noClick: false, // Allow clicking to select files
   })
 
   return (
@@ -303,7 +383,7 @@ const FileUploader = ({ onFilesProcessed, processing, setProcessing }: FileUploa
           ${processing ? 'opacity-50 cursor-not-allowed' : ''}
         `}
       >
-        <input {...getInputProps()} />
+        <input {...getInputProps()} multiple />
         
         <div className="flex flex-col items-center space-y-4">
           {processing ? (
@@ -324,7 +404,7 @@ const FileUploader = ({ onFilesProcessed, processing, setProcessing }: FileUploa
               }
             </p>
             <p className="text-sm text-gray-400">
-              or click to browse • All file types supported
+              or click to browse • Select multiple files at once • All file types supported
             </p>
           </div>
 

@@ -73,13 +73,16 @@ const FileCard = ({ file }: { file: FileData }) => {
         <div className="space-y-1">
           <p className="text-xs text-gray-500 uppercase tracking-wide">Confidence</p>
           <p className={`text-sm font-bold ${
-            file.confidence_score ? 
+            file.confidence_score !== null && file.confidence_score !== undefined ? 
               file.confidence_score >= 0.9 ? 'text-green-400' :
               file.confidence_score >= 0.7 ? 'text-yellow-400' :
-              'text-orange-400'
+              file.confidence_score >= 0.5 ? 'text-orange-400' :
+              'text-red-400'
             : 'text-gray-400'
           }`}>
-            {file.confidence_score ? `${(file.confidence_score * 100).toFixed(1)}%` : 'N/A'}
+            {file.confidence_score !== null && file.confidence_score !== undefined 
+              ? `${(file.confidence_score * 100).toFixed(1)}%` 
+              : 'N/A'}
           </p>
         </div>
         <div className="space-y-1">
