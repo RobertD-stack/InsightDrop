@@ -24,6 +24,36 @@ export const generatePDFSummary = (files: FileData[]) => {
     ? filesWithConfidence.reduce((sum, f) => sum + (f.confidence_score || 0), 0) / filesWithConfidence.length
     : 0
   
+  // Calculate REAL accuracy using filename extension as ground truth
+  const calculateAccuracy = (file: FileData): boolean => {
+    const extension = file.filename.split('.').pop()?.toLowerCase()
+    const predictedType = file.filetype?.toLowerCase()
+    
+    if (!extension || !predictedType) return false
+    
+    // Direct match
+    if (predictedType === extension) return true
+    
+    // Handle common aliases
+    const aliases: { [key: string]: string[] } = {
+      'jpg': ['jpeg', 'jpg'],
+      'jpeg': ['jpeg', 'jpg'],
+      'htm': ['html', 'htm'],
+      'html': ['html', 'htm'],
+      'js': ['javascript', 'js'],
+      'ts': ['typescript', 'ts'],
+      'py': ['python', 'py'],
+    }
+    
+    if (aliases[extension]?.includes(predictedType)) return true
+    if (aliases[predictedType]?.includes(extension)) return true
+    
+    return false
+  }
+  
+  const correctPredictions = files.filter(calculateAccuracy).length
+  const overallAccuracy = totalFiles > 0 ? correctPredictions / totalFiles : 0
+  
   // Categories breakdown
   const categories: { [key: string]: number } = {}
   files.forEach(f => {
@@ -31,23 +61,44 @@ export const generatePDFSummary = (files: FileData[]) => {
     categories[cat] = (categories[cat] || 0) + 1
   })
   
-  // File type breakdown with accuracy
-  const filetypeStats: { [key: string]: { count: number, totalConfidence: number, avgConfidence: number } } = {}
+  // File type breakdown with accuracy and confidence
+  const filetypeStats: { [key: string]: { 
+    count: number, 
+    totalConfidence: number, 
+    avgConfidence: number,
+    correctCount: number,
+    accuracy: number
+  } } = {}
+  
   files.forEach(f => {
     const type = f.filetype || 'unknown'
     if (!filetypeStats[type]) {
-      filetypeStats[type] = { count: 0, totalConfidence: 0, avgConfidence: 0 }
+      filetypeStats[type] = { 
+        count: 0, 
+        totalConfidence: 0, 
+        avgConfidence: 0,
+        correctCount: 0,
+        accuracy: 0
+      }
     }
     filetypeStats[type].count++
+    
+    // Add confidence score
     if (f.confidence_score) {
       filetypeStats[type].totalConfidence += f.confidence_score
     }
+    
+    // Check if prediction is correct (vs filename extension)
+    if (calculateAccuracy(f)) {
+      filetypeStats[type].correctCount++
+    }
   })
   
-  // Calculate average confidence per file type
+  // Calculate averages for each file type
   Object.keys(filetypeStats).forEach(type => {
     const stats = filetypeStats[type]
     stats.avgConfidence = stats.count > 0 ? stats.totalConfidence / stats.count : 0
+    stats.accuracy = stats.count > 0 ? stats.correctCount / stats.count : 0
   })
   
   // Sort file types by count (descending)
@@ -63,15 +114,22 @@ export const generatePDFSummary = (files: FileData[]) => {
   yPos += 7
   doc.text(`Total Size: ${formatBytes(totalSize)}`, 20, yPos)
   yPos += 7
-  doc.text(`Files with Confidence Scores: ${filesWithConfidence.length} (${((filesWithConfidence.length / totalFiles) * 100).toFixed(1)}%)`, 20, yPos)
-  yPos += 10
+  doc.text(`Correct Predictions: ${correctPredictions} / ${totalFiles}`, 20, yPos)
+  yPos += 12
   
-  // Highlight overall accuracy
+  // Highlight overall accuracy (vs filename extension)
   doc.setFont(undefined, 'bold')
   doc.setFontSize(12)
-  doc.text(`Overall Average Accuracy: ${(avgConfidence * 100).toFixed(2)}%`, 20, yPos)
+  doc.text(`Overall Average Accuracy: ${(overallAccuracy * 100).toFixed(2)}%`, 20, yPos)
+  doc.setFontSize(9)
+  doc.setFont(undefined, 'italic')
+  yPos += 6
+  doc.text(`(Based on comparison with filename extensions)`, 20, yPos)
+  yPos += 8
+  
   doc.setFont(undefined, 'normal')
   doc.setFontSize(10)
+  doc.text(`Average AI Confidence Score: ${(avgConfidence * 100).toFixed(2)}%`, 20, yPos)
   yPos += 10
   
   doc.text(`Files from ZIP: ${filesFromZip}`, 20, yPos)
@@ -102,57 +160,64 @@ export const generatePDFSummary = (files: FileData[]) => {
   
   doc.setFontSize(9)
   doc.setFont(undefined, 'italic')
-  doc.text('(Showing average confidence score for each detected file type)', 20, yPos)
+  doc.text('(Accuracy = correct predictions vs file extension | Confidence = AI certainty)', 20, yPos)
   yPos += 10
   
   doc.setFont(undefined, 'normal')
-  doc.setFontSize(10)
+  doc.setFontSize(8)
   
   // Table header
   doc.setFont(undefined, 'bold')
-  doc.text('File Type', 25, yPos)
-  doc.text('Avg Accuracy', 80, yPos)
-  doc.text('Count', 130, yPos)
-  doc.text('Quality', 160, yPos)
-  yPos += 7
+  doc.text('File Type', 22, yPos)
+  doc.text('Accuracy', 60, yPos)
+  doc.text('Confidence', 95, yPos)
+  doc.text('Correct', 130, yPos)
+  doc.text('Total', 158, yPos)
+  doc.text('Grade', 178, yPos)
+  yPos += 6
   
   // Draw line under header
   doc.setDrawColor(200, 200, 200)
-  doc.line(20, yPos - 2, 190, yPos - 2)
+  doc.line(20, yPos - 2, 195, yPos - 2)
   
   doc.setFont(undefined, 'normal')
   
   // Show top file types by count
-  const topFiletypes = sortedFiletypes.slice(0, 20)  // Top 20 file types
+  const topFiletypes = sortedFiletypes.slice(0, 25)  // Top 25 file types
   topFiletypes.forEach(([type, stats]) => {
-    if (yPos > 270) {
+    if (yPos > 275) {
       doc.addPage()
       yPos = 20
       // Repeat header on new page
       doc.setFont(undefined, 'bold')
-      doc.text('File Type', 25, yPos)
-      doc.text('Avg Accuracy', 80, yPos)
-      doc.text('Count', 130, yPos)
-      doc.text('Quality', 160, yPos)
-      yPos += 7
-      doc.line(20, yPos - 2, 190, yPos - 2)
+      doc.text('File Type', 22, yPos)
+      doc.text('Accuracy', 60, yPos)
+      doc.text('Confidence', 95, yPos)
+      doc.text('Correct', 130, yPos)
+      doc.text('Total', 158, yPos)
+      doc.text('Grade', 178, yPos)
+      yPos += 6
+      doc.line(20, yPos - 2, 195, yPos - 2)
       doc.setFont(undefined, 'normal')
     }
     
-    const accuracy = stats.avgConfidence * 100
-    const qualityLabel = accuracy >= 90 ? 'Excellent' : accuracy >= 80 ? 'Very Good' : accuracy >= 70 ? 'Good' : accuracy >= 60 ? 'Fair' : 'Low'
+    const accuracy = stats.accuracy * 100
+    const confidence = stats.avgConfidence * 100
+    const gradeLabel = accuracy >= 95 ? 'A+' : accuracy >= 90 ? 'A' : accuracy >= 85 ? 'B+' : accuracy >= 80 ? 'B' : accuracy >= 75 ? 'C+' : accuracy >= 70 ? 'C' : accuracy >= 60 ? 'D' : 'F'
     
-    doc.text(type.toUpperCase(), 25, yPos)
-    doc.text(`${accuracy.toFixed(2)}%`, 80, yPos)
-    doc.text(`${stats.count}`, 130, yPos)
-    doc.text(qualityLabel, 160, yPos)
-    yPos += 6
+    doc.text(type.toUpperCase(), 22, yPos)
+    doc.text(`${accuracy.toFixed(1)}%`, 60, yPos)
+    doc.text(`${confidence.toFixed(1)}%`, 95, yPos)
+    doc.text(`${stats.correctCount}`, 130, yPos)
+    doc.text(`${stats.count}`, 158, yPos)
+    doc.text(gradeLabel, 178, yPos)
+    yPos += 5.5
   })
   
-  if (sortedFiletypes.length > 20) {
+  if (sortedFiletypes.length > 25) {
     yPos += 3
     doc.setFont(undefined, 'italic')
-    doc.text(`... and ${sortedFiletypes.length - 20} more file types`, 25, yPos)
+    doc.text(`... and ${sortedFiletypes.length - 25} more file types`, 22, yPos)
     yPos += 7
     doc.setFont(undefined, 'normal')
   }
