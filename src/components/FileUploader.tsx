@@ -112,6 +112,14 @@ const FileUploader = ({ onFilesProcessed, processing, setProcessing }: FileUploa
       }
 
       const data = await response.json()
+      console.log('Server response data:', data)
+      
+      // Check if we have results
+      if (!data || !data.results || !Array.isArray(data.results)) {
+        console.error('Invalid response format:', data)
+        throw new Error('Server returned invalid data format')
+      }
+      
       console.log(`Successfully processed ZIP: ${data.total_processed} files`)
       
       setUploadProgress(prev => ({ ...prev, [zipFileName]: 100 }))
@@ -145,7 +153,18 @@ const FileUploader = ({ onFilesProcessed, processing, setProcessing }: FileUploa
       return formattedResults
     } catch (error) {
       console.error('❌ Error with server-side ZIP processing:', error)
-      alert(`Failed to process ZIP file: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      
+      // Show detailed error to user
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      alert(`Failed to process ZIP file: ${errorMessage}\n\nCheck browser console (F12) and backend terminal for details.`)
+      
+      // Set progress to 0 to indicate failure
+      setUploadProgress(prev => {
+        const newProgress = { ...prev }
+        delete newProgress[zipFileName]
+        return newProgress
+      })
+      
       return []
     }
   }
