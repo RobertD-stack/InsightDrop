@@ -26,21 +26,29 @@ const FileUploader = ({ onFilesProcessed, processing, setProcessing }: FileUploa
     })
   }
 
-  const uint8ArrayToBase64 = (bytes: Uint8Array): string => {
-    // Convert Uint8Array to base64 in chunks to avoid stack overflow
-    let binary = ''
-    const chunkSize = 8192
-    for (let i = 0; i < bytes.length; i += chunkSize) {
-      const chunk = bytes.subarray(i, i + chunkSize)
-      binary += String.fromCharCode.apply(null, Array.from(chunk))
-    }
-    return btoa(binary)
+  const uint8ArrayToBase64 = async (bytes: Uint8Array): Promise<string> => {
+    // Use browser's native FileReader for robust base64 encoding
+    // This handles files of any size including large EXE files without crashing
+    return new Promise((resolve, reject) => {
+      // Create a new Uint8Array to ensure standard ArrayBuffer type
+      const safeBytes = new Uint8Array(bytes)
+      const blob = new Blob([safeBytes])
+      const reader = new FileReader()
+      reader.onload = () => {
+        const dataUrl = reader.result as string
+        // Remove the data URL prefix (e.g., "data:application/octet-stream;base64,")
+        const base64 = dataUrl.split(',')[1]
+        resolve(base64)
+      }
+      reader.onerror = reject
+      reader.readAsDataURL(blob)
+    })
   }
 
   const classifyFile = async (filename: string, binaryData: Uint8Array): Promise<any> => {
     try {
-      // Convert Uint8Array to base64 safely (handles large files)
-      const base64 = uint8ArrayToBase64(binaryData)
+      // Convert Uint8Array to base64 safely (handles large files including EXEs)
+      const base64 = await uint8ArrayToBase64(binaryData)
       
       const response = await fetch('http://localhost:5000/api/classify', {
         method: 'POST',
