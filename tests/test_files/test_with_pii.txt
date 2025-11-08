@@ -1,0 +1,35 @@
+Employee Information File
+==========================
+
+Contact Details:
+Name: John Smith
+Email: john.smith@company.com
+Phone: (555) 123-4567
+Address: 123 Main Street, New York, NY 10001
+
+Identification:
+SSN: 123-45-6789
+Student ID: STU-2024-12345
+
+Network Information:
+IP Address: 192.168.1.100
+Server IP: 10.0.0.1
+
+Payment Information:
+Credit Card: 4532-1234-5678-9010
+Expiry: 12/25
+
+Additional Contacts:
+Email: jane.doe@university.edu
+Phone: +1-555-987-6543
+Alternative Email: contact@example.org
+
+Student Records:
+Student ID: ABC123456
+Student ID: XYZ789012
+
+Network Logs:
+192.168.0.1 - Access granted
+10.0.0.254 - Connection established
+172.16.0.1 - Data transfer complete
+

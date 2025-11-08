@@ -93,6 +93,33 @@ const FileCard = ({ file }: { file: FileData }) => {
         </div>
       </div>
 
+      {/* PII Detection Alert */}
+      {file.metadata?.pii_detection?.has_pii && (
+        <div className="mb-4 p-3 bg-red-500/20 border border-red-400/50 rounded-lg">
+          <div className="flex items-center space-x-2">
+            <span className="text-red-400 font-bold">⚠️ PII DETECTED</span>
+            <span className="text-xs text-red-300">
+              {file.metadata.pii_detection.total_count} instance(s) found
+            </span>
+          </div>
+          <div className="mt-2 text-xs text-red-200">
+            <p className="font-semibold">Types found:</p>
+            <ul className="list-disc list-inside mt-1 space-y-1">
+              {file.metadata.pii_detection.pii_types_found.map((type: string) => (
+                <li key={type} className="capitalize">
+                  {type.replace(/_/g, ' ')} 
+                  {file.metadata.pii_detection.by_type?.[type] && (
+                    <span className="text-red-300">
+                      {' '}({file.metadata.pii_detection.by_type[type].count} found)
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+
       {file.metadata && Object.keys(file.metadata).length > 0 && (
         <>
           <button
@@ -128,12 +155,53 @@ const FileCard = ({ file }: { file: FileData }) => {
                     <p className="text-sm text-white font-medium mt-1">{file.language}</p>
                   </div>
                 )}
-                {Object.entries(file.metadata).map(([key, value]) => (
-                  <div key={key} className="bg-black/20 rounded-lg p-3">
-                    <span className="text-xs text-gray-500 capitalize">{key.replace(/_/g, ' ')}:</span>
-                    <p className="text-sm text-white font-medium mt-1">{String(value)}</p>
+                {/* PII Detection Details */}
+                {file.metadata.pii_detection && (
+                  <div className="bg-red-500/10 border border-red-400/30 rounded-lg p-3 md:col-span-2">
+                    <span className="text-xs text-red-400 font-semibold uppercase">PII Detection (Stretch Goal)</span>
+                    <div className="mt-2 space-y-2">
+                      <p className="text-sm text-white">
+                        <span className="text-gray-400">Status:</span>{' '}
+                        <span className={file.metadata.pii_detection.has_pii ? 'text-red-400 font-bold' : 'text-green-400'}>
+                          {file.metadata.pii_detection.has_pii ? 'PII Found' : 'No PII Detected'}
+                        </span>
+                      </p>
+                      {file.metadata.pii_detection.has_pii && (
+                        <>
+                          <p className="text-sm text-white">
+                            <span className="text-gray-400">Total Detections:</span>{' '}
+                            <span className="text-red-400 font-bold">{file.metadata.pii_detection.total_count}</span>
+                          </p>
+                          <p className="text-sm text-white">
+                            <span className="text-gray-400">High Confidence:</span>{' '}
+                            <span className="text-yellow-400">{file.metadata.pii_detection.high_confidence_count}</span>
+                          </p>
+                          {file.metadata.pii_detection.by_type && (
+                            <div className="mt-2">
+                              <p className="text-xs text-gray-400 mb-1">Breakdown by Type:</p>
+                              <div className="grid grid-cols-2 gap-2 text-xs">
+                                {Object.entries(file.metadata.pii_detection.by_type).map(([type, data]: [string, any]) => (
+                                  <div key={type} className="bg-black/30 rounded p-2">
+                                    <span className="text-red-300 capitalize">{type.replace(/_/g, ' ')}:</span>
+                                    <span className="text-white ml-1">{data.count}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      )}
+                    </div>
                   </div>
-                ))}
+                )}
+                {Object.entries(file.metadata)
+                  .filter(([key]) => key !== 'pii_detection' && key !== 'file_size' && key !== 'filename' && key !== 'analyzed_at' && key !== 'extension')
+                  .map(([key, value]) => (
+                    <div key={key} className="bg-black/20 rounded-lg p-3">
+                      <span className="text-xs text-gray-500 capitalize">{key.replace(/_/g, ' ')}:</span>
+                      <p className="text-sm text-white font-medium mt-1">{String(value)}</p>
+                    </div>
+                  ))}
               </div>
             </div>
           )}

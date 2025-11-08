@@ -98,6 +98,24 @@ Each file classification includes:
 - Extension validation
 - Error handling (for corrupted files)
 
+### 6. **PII Detection (Stretch Goal) ⭐**
+Automatically detects Personally Identifiable Information in files:
+- **SSN (Social Security Numbers):** US format validation
+- **Phone Numbers:** US and international formats
+- **IP Addresses:** IPv4 and IPv6
+- **Credit Card Numbers:** Luhn algorithm validation
+- **Email Addresses:** Standard email format
+- **Student IDs:** Common academic ID patterns
+- **Addresses:** Street address detection
+- **Names:** Person name patterns
+
+**Features:**
+- Scans text-based files (documents, code, structured data)
+- Confidence scoring for each detection
+- Summary statistics and breakdown by type
+- Privacy-focused: Shows detection counts, not full values
+- Multi-language support (English and other languages)
+
 ---
 
 ## 📊 **Performance Metrics**
@@ -120,6 +138,37 @@ Each file classification includes:
 - **Partial Success:** Continues processing even if individual files fail
 - **Progress Tracking:** Real-time progress updates for large batches
 - **Health Monitoring:** Built-in health check endpoint
+
+---
+
+## ⭐ **Stretch Goal Achievement**
+
+### **PII Detection Implementation**
+We've implemented the stretch goal requirement to detect Personally Identifiable Information (PII) in file contents:
+
+**Detected PII Types:**
+- ✅ SSN (Social Security Numbers) - with format validation
+- ✅ Phone numbers (US and international formats)
+- ✅ IP addresses (IPv4 and IPv6)
+- ✅ Credit card numbers (with Luhn algorithm validation)
+- ✅ Email addresses
+- ✅ Student IDs
+- ✅ Addresses
+- ✅ Names
+
+**Key Features:**
+- Automatic scanning of text-based files
+- Confidence scoring for each detection
+- Summary statistics and type breakdown
+- Privacy-focused output (counts, not full values)
+- Multi-language support
+- Integrated into classification pipeline
+
+**Business Value:**
+- **Compliance:** Identify files containing sensitive data for GDPR, HIPAA, etc.
+- **Security:** Flag files with PII for enhanced protection
+- **Data Governance:** Enable data classification and access controls
+- **Risk Assessment:** Quantify PII exposure in file repositories
 
 ---
 

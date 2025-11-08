@@ -1,6 +1,7 @@
 from src.file_type_identifier import FileTypeIdentifier
 from src.content_classifier import ContentCategoryClassifier
 from src.confidence_scorer import ConfidenceScorer
+from src.pii_detector import PIIDetector
 from src.utils import FileClassificationResult
 from datetime import datetime
 
@@ -9,6 +10,7 @@ class FileClassificationPipeline:
         self.type_identifier = FileTypeIdentifier()
         self.category_classifier = ContentCategoryClassifier()
         self.confidence_scorer = ConfidenceScorer()
+        self.pii_detector = PIIDetector()
     
     def process_file(self, binary_data: bytes, filename: str = None) -> FileClassificationResult:
         """
@@ -32,18 +34,40 @@ class FileClassificationPipeline:
             type_result['type']
         )
         
-        # Step 4: Build result object
+        # Step 4: Detect PII (Stretch Goal)
+        # Only scan text-based files for PII (not binary media files)
+        pii_summary = None
+        text_based_types = ['txt', 'csv', 'json', 'xml', 'html', 'pdf', 'doc', 'docx', 
+                           'xls', 'xlsx', 'log', 'md', 'yaml', 'yml', 'sql', 'py', 'js',
+                           'java', 'cpp', 'c', 'h', 'php', 'rb', 'go', 'rs', 'sql']
+        
+        if type_result['type'] in text_based_types or content_category in ['document', 'structured', 'code']:
+            try:
+                pii_detections = self.pii_detector.detect_in_binary(binary_data)
+                pii_summary = self.pii_detector.summarize(pii_detections)
+            except Exception as e:
+                # PII detection failed, continue without it
+                print(f"PII detection warning for {filename}: {e}")
+                pii_summary = {'has_pii': False, 'error': str(e)}
+        
+        # Step 5: Build result object
+        metadata = {
+            'file_size': len(binary_data),
+            'filename': filename,
+            'analyzed_at': datetime.now().isoformat(),
+            'extension': type_result.get('extension')
+        }
+        
+        # Add PII information to metadata
+        if pii_summary:
+            metadata['pii_detection'] = pii_summary
+        
         result = FileClassificationResult(
             filetype=type_result['type'],
             content_category=content_category,
             confidence_score=confidence,
             mime_type=type_result.get('mime_type'),
-            metadata={
-                'file_size': len(binary_data),
-                'filename': filename,
-                'analyzed_at': datetime.now().isoformat(),
-                'extension': type_result.get('extension')
-            }
+            metadata=metadata
         )
         
         return result

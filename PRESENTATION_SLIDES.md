@@ -38,7 +38,35 @@
 
 ---
 
-## Slide 4: How It Works
+## Slide 4: Stretch Goal - PII Detection ⭐
+### **Personally Identifiable Information Detection**
+
+**Implemented PII Detection:**
+- ✅ **SSN** - Social Security Numbers (with validation)
+- ✅ **Phone Numbers** - US and international formats
+- ✅ **IP Addresses** - IPv4 and IPv6
+- ✅ **Credit Cards** - With Luhn algorithm validation
+- ✅ **Email Addresses** - Standard format detection
+- ✅ **Student IDs** - Academic ID patterns
+- ✅ **Addresses** - Street address detection
+- ✅ **Names** - Person name patterns
+
+**Features:**
+- Automatic scanning of text-based files
+- Confidence scoring for each detection
+- Privacy-focused (shows counts, not values)
+- Multi-language support
+- Integrated into classification pipeline
+
+**Business Value:**
+- Compliance (GDPR, HIPAA)
+- Security risk assessment
+- Data governance
+- PII exposure quantification
+
+---
+
+## Slide 5: How It Works
 ### **Multi-Method Detection Pipeline**
 
 ```
@@ -68,7 +96,7 @@ Classification Result
 
 ---
 
-## Slide 5: Key Features
+## Slide 6: Key Features
 ### **Enterprise-Grade Capabilities**
 
 | Feature | Capability |
@@ -83,7 +111,7 @@ Classification Result
 
 ---
 
-## Slide 6: Supported File Types
+## Slide 7: Supported File Types
 ### **Comprehensive Coverage**
 
 **Media Files:**
@@ -108,7 +136,7 @@ Classification Result
 
 ---
 
-## Slide 7: Performance Metrics
+## Slide 8: Performance Metrics
 ### **Proven at Scale**
 
 **Processing Speed:**
@@ -129,7 +157,7 @@ Classification Result
 
 ---
 
-## Slide 8: NetApp Use Cases
+## Slide 9: NetApp Use Cases
 ### **Real-World Applications**
 
 ### 1. **Storage Optimization**
@@ -154,7 +182,7 @@ Classification Result
 
 ---
 
-## Slide 9: Technical Architecture
+## Slide 10: Technical Architecture
 ### **Production-Ready Design**
 
 ```
@@ -186,7 +214,7 @@ Classification Result
 
 ---
 
-## Slide 10: Business Value
+## Slide 11: Business Value
 ### **ROI for NetApp Customers**
 
 **Time Savings:**
@@ -207,7 +235,7 @@ Classification Result
 
 ---
 
-## Slide 11: Live Demo
+## Slide 12: Live Demo
 ### **What You'll See**
 
 1. **Single File Upload**
@@ -231,7 +259,7 @@ Classification Result
 
 ---
 
-## Slide 12: Competitive Advantages
+## Slide 13: Competitive Advantages
 ### **Why This Solution Stands Out**
 
 ✅ **Enterprise Scale:** Handles 5000+ files in single operation  
@@ -244,7 +272,7 @@ Classification Result
 
 ---
 
-## Slide 13: Future Roadmap
+## Slide 14: Future Roadmap
 ### **Phase 2 Enhancements**
 
 **Advanced Features:**
@@ -266,7 +294,7 @@ Classification Result
 
 ---
 
-## Slide 14: Market Opportunity
+## Slide 15: Market Opportunity
 ### **Why This Matters**
 
 **Target Markets:**
@@ -283,7 +311,7 @@ Classification Result
 
 ---
 
-## Slide 15: Call to Action
+## Slide 16: Call to Action
 ### **Next Steps with NetApp**
 
 **Immediate Opportunities:**
@@ -301,7 +329,7 @@ Classification Result
 
 ---
 
-## Slide 16: Summary
+## Slide 17: Summary
 ### **Key Takeaways**
 
 **We've built an enterprise-grade AI file classification system that:**
@@ -317,7 +345,7 @@ Classification Result
 
 ---
 
-## Slide 17: Q&A
+## Slide 18: Q&A
 ### **Questions?**
 
 **Contact:**
