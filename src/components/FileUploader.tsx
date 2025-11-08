@@ -226,6 +226,10 @@ const FileUploader = ({ onFilesProcessed, processing, setProcessing, selectedMod
   const processFiles = async (files: File[]) => {
     setProcessing(true)
     const BATCH_SIZE = 10  // Process 10 files per batch
+    
+    // ⏱️ START MEASURING TOTAL END-TO-END TIME
+    const startTime = performance.now()
+    let totalFilesProcessed = 0
 
     // Separate ZIP files from regular files
     const zipFiles = files.filter(f => 
@@ -335,6 +339,7 @@ const FileUploader = ({ onFilesProcessed, processing, setProcessing, selectedMod
           
           // Progressive results - show this batch immediately!
           onFilesProcessed(batchResults, timingData)
+          totalFilesProcessed += batchResults.length
         }
       } catch (error) {
         console.error('Batch classification error:', error)
@@ -347,6 +352,31 @@ const FileUploader = ({ onFilesProcessed, processing, setProcessing, selectedMod
           delete newProgress[file.name]
           return newProgress
         })
+      })
+    }
+
+    // ⏱️ END MEASURING TOTAL END-TO-END TIME
+    const endTime = performance.now()
+    const totalElapsedSeconds = (endTime - startTime) / 1000
+    
+    console.log('\n' + '='.repeat(60))
+    console.log('📊 END-TO-END TIMING REPORT')
+    console.log('='.repeat(60))
+    console.log(`Total Files Processed: ${totalFilesProcessed}`)
+    console.log(`Total Elapsed Time (Real): ${totalElapsedSeconds.toFixed(3)}s`)
+    console.log(`Average per File (Real): ${((totalElapsedSeconds / totalFilesProcessed) * 1000).toFixed(2)}ms`)
+    console.log(`Throughput (Real): ${(totalFilesProcessed / totalElapsedSeconds).toFixed(2)} files/second`)
+    console.log('='.repeat(60) + '\n')
+    
+    // Send final timing update with real elapsed time
+    if (totalFilesProcessed > 0) {
+      onFilesProcessed([], {
+        totalTime: totalElapsedSeconds,
+        classificationTime: 0, // Will be accumulated from batches
+        decodeTime: 0, // Will be accumulated from batches
+        filesProcessed: 0, // Already counted in batches
+        avgPerFile: totalElapsedSeconds / totalFilesProcessed,
+        realElapsedTime: totalElapsedSeconds
       })
     }
 

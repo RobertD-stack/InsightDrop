@@ -151,26 +151,51 @@ export const generatePDFSummary = (files: FileData[], timing?: TimingData) => {
     doc.setFontSize(10)
     
     // Show files processed from timing data
-    doc.text(`Files Processed (Timing): ${timing.filesProcessed}`, 20, yPos)
+    doc.text(`Files Processed: ${timing.filesProcessed}`, 20, yPos)
+    yPos += 10
+    
+    // Real elapsed time (if available)
+    if (timing.realElapsedTime) {
+      doc.setFont(undefined, 'bold')
+      doc.text('Actual End-to-End Time (measured in browser):', 20, yPos)
+      doc.setFont(undefined, 'normal')
+      yPos += 6
+      doc.text(`  Total Elapsed Time: ${timing.realElapsedTime.toFixed(3)}s`, 20, yPos)
+      yPos += 6
+      const realAvgPerFile = timing.realElapsedTime / timing.filesProcessed
+      doc.text(`  Average per File: ${(realAvgPerFile * 1000).toFixed(2)}ms`, 20, yPos)
+      yPos += 6
+      const realThroughput = timing.filesProcessed / timing.realElapsedTime
+      doc.text(`  Throughput: ${realThroughput.toFixed(2)} files/second`, 20, yPos)
+      yPos += 10
+      
+      doc.setFontSize(8)
+      doc.setFont(undefined, 'italic')
+      doc.text(`(Includes frontend processing, network transfer, and all batches)`, 20, yPos)
+      doc.setFont(undefined, 'normal')
+      doc.setFontSize(10)
+      yPos += 10
+    }
+    
+    // Backend classification time breakdown
+    doc.setFont(undefined, 'bold')
+    doc.text('Backend Classification Time (backend only):', 20, yPos)
+    doc.setFont(undefined, 'normal')
     yPos += 6
-    doc.text(`Total Processing Time: ${timing.totalTime.toFixed(3)}s`, 20, yPos)
+    doc.text(`  Classification Time: ${timing.classificationTime.toFixed(3)}s`, 20, yPos)
     yPos += 6
-    doc.text(`Classification Time: ${timing.classificationTime.toFixed(3)}s`, 20, yPos)
+    doc.text(`  Base64 Decode Time: ${timing.decodeTime.toFixed(3)}s`, 20, yPos)
     yPos += 6
-    doc.text(`Base64 Decode Time: ${timing.decodeTime.toFixed(3)}s`, 20, yPos)
-    yPos += 6
-    doc.text(`Average Time per File: ${(timing.avgPerFile * 1000).toFixed(2)}ms`, 20, yPos)
+    doc.text(`  Average per File: ${(timing.avgPerFile * 1000).toFixed(2)}ms`, 20, yPos)
     yPos += 6
     
-    // Throughput calculation
-    const throughput = timing.classificationTime > 0 ? timing.filesProcessed / timing.classificationTime : 0
-    doc.text(`Throughput: ${throughput.toFixed(2)} files/second`, 20, yPos)
+    const backendThroughput = timing.classificationTime > 0 ? timing.filesProcessed / timing.classificationTime : 0
+    doc.text(`  Throughput: ${backendThroughput.toFixed(2)} files/second`, 20, yPos)
     yPos += 6
     
-    // Verification check
     doc.setFontSize(8)
     doc.setFont(undefined, 'italic')
-    doc.text(`Verification: ${timing.filesProcessed} files ÷ ${timing.classificationTime.toFixed(3)}s = ${throughput.toFixed(2)} files/s`, 20, yPos)
+    doc.text(`(Backend AI classification only, excludes network and frontend overhead)`, 20, yPos)
     doc.setFont(undefined, 'normal')
     doc.setFontSize(10)
     yPos += 10

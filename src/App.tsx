@@ -38,17 +38,24 @@ function App() {
         const newDecodeTime = prev.decodeTime + timing.decodeTime
         const newAvgPerFile = newTotalFiles > 0 ? newClassificationTime / newTotalFiles : 0
         
+        // If this update includes real elapsed time, use it
+        const realElapsedTime = timing.realElapsedTime 
+          ? timing.realElapsedTime 
+          : prev.realElapsedTime
+        
         const updated = {
           totalTime: newTotalTime,
           classificationTime: newClassificationTime,
           decodeTime: newDecodeTime,
           filesProcessed: newTotalFiles,
-          avgPerFile: newAvgPerFile
+          avgPerFile: newAvgPerFile,
+          realElapsedTime: realElapsedTime
         }
         
         console.log('📊 Timing Update:')
         console.log(`  Batch: +${timing.filesProcessed} files, +${timing.classificationTime.toFixed(3)}s`)
-        console.log(`  Cumulative: ${newTotalFiles} files, ${newClassificationTime.toFixed(3)}s total`)
+        console.log(`  Cumulative: ${newTotalFiles} files, ${newClassificationTime.toFixed(3)}s backend`)
+        console.log(`  Real Elapsed: ${realElapsedTime?.toFixed(3) || 'N/A'}s`)
         console.log(`  Average per file: ${(newAvgPerFile * 1000).toFixed(2)}ms`)
         
         return updated

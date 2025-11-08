@@ -26,5 +26,6 @@ export interface TimingData {
   decodeTime: number
   filesProcessed: number
   avgPerFile: number
+  realElapsedTime?: number  // Actual wall-clock time from frontend
 }
 
