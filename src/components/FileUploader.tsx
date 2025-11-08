@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { Upload, File as FileIcon, Loader2 } from 'lucide-react'
 import { FileData } from '../types'
+import JSZip from 'jszip'
 
 interface FileUploaderProps {
   onFilesProcessed: (results: FileData[]) => void
@@ -103,108 +104,110 @@ const FileUploader = ({ onFilesProcessed, processing, setProcessing }: FileUploa
     return mimeTypes[ext || ''] || 'application/octet-stream'
   }
 
-  const classifyZipServerSide = async (file: File, zipFileName: string): Promise<FileData[]> => {
-    // Server-side ZIP processing - fast for large ZIPs!
+  const analyzeZipFile = async (file: File, zipFileName: string): Promise<void> => {
+    // Client-side ZIP extraction with batch processing
+    const BATCH_SIZE = 50  // Process 50 files per API call
+    
     try {
       const fileSizeMB = file.size / 1024 / 1024
-      console.log(`Starting ZIP processing for: ${zipFileName} (${fileSizeMB.toFixed(2)} MB)`)
+      console.log(`Starting ZIP extraction for: ${zipFileName} (${fileSizeMB.toFixed(2)} MB)`)
       
-      // For large files (>100MB), use FormData instead of base64
-      // This avoids JavaScript string length limits
-      const formData = new FormData()
-      formData.append('zipFile', file)
+      setUploadProgress(prev => ({ ...prev, [zipFileName]: 5 }))
       
-      console.log('Uploading ZIP file to server...')
-      setUploadProgress(prev => ({ ...prev, [zipFileName]: 20 }))
+      // Extract ZIP in browser
+      const arrayBuffer = await file.arrayBuffer()
+      const zip = await JSZip.loadAsync(arrayBuffer)
       
-      const response = await fetch('http://localhost:5000/api/classify-zip', {
-        method: 'POST',
-        body: formData  // Send binary directly, no base64!
-      })
+      console.log('ZIP loaded, extracting files...')
+      setUploadProgress(prev => ({ ...prev, [zipFileName]: 10 }))
+      
+      // Get all file entries (skip directories)
+      const fileEntries = Object.entries(zip.files).filter(([_, entry]) => !entry.dir)
+      const totalFiles = fileEntries.length
+      console.log(`ZIP contains ${totalFiles} files`)
+      
+      let processedCount = 0
+      
+      // Process in batches
+      for (let i = 0; i < fileEntries.length; i += BATCH_SIZE) {
+        const batch = fileEntries.slice(i, i + BATCH_SIZE)
+        console.log(`Processing batch ${Math.floor(i / BATCH_SIZE) + 1}: files ${i + 1}-${Math.min(i + BATCH_SIZE, totalFiles)}`)
+        
+        // Extract all files in this batch
+        const batchData = await Promise.all(
+          batch.map(async ([path, zipEntry]) => {
+            const binaryData = await zipEntry.async('uint8array')
+            const pathParts = path.split('/')
+            const filename = pathParts[pathParts.length - 1]
+            const folderPath = pathParts.slice(0, -1).join('/')
+            
+            return { filename, binaryData, folderPath }
+          })
+        )
+        
+        // Convert batch to base64 for API
+        const filesData = await Promise.all(
+          batchData.map(async f => ({
+            filename: f.filename,
+            binaryData: await uint8ArrayToBase64(f.binaryData)
+          }))
+        )
+        
+        // Classify entire batch in ONE API call
+        const response = await fetch('http://localhost:5000/api/classify-batch', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ files: filesData })
+        })
 
-      console.log(`Server responded with status: ${response.status}`)
-      setUploadProgress(prev => ({ ...prev, [zipFileName]: 60 }))
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error('Server error response:', errorText)
-        throw new Error(`ZIP classification failed: ${response.statusText} - ${errorText}`)
+        if (response.ok) {
+          const data = await response.json()
+          
+          // Convert to FileData format
+          const batchResults: FileData[] = data.results.map((result: any, index: number) => ({
+            id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            filename: batchData[index].filename,
+            size: batchData[index].binaryData.length,
+            type: getMimeType(batchData[index].filename),
+            timestamp: new Date().toISOString(),
+            isFromZip: true,
+            zipSource: zipFileName,
+            folderPath: batchData[index].folderPath || undefined,
+            filetype: result.filetype,
+            content_category: result.content_category,
+            confidence_score: result.confidence_score,
+            mime_type: result.mime_type,
+            encoding: result.encoding,
+            language: result.language,
+            metadata: result.metadata
+          }))
+          
+          // Progressive results - show this batch immediately!
+          onFilesProcessed(batchResults)
+          console.log(`✅ Batch complete: ${batchResults.length} files added to display`)
+        } else {
+          console.error(`Batch ${Math.floor(i / BATCH_SIZE) + 1} failed:`, await response.text())
+        }
+        
+        processedCount += batch.length
+        
+        // Update progress (10% for loading, 90% for processing)
+        const progress = 10 + Math.floor((processedCount / totalFiles) * 90)
+        setUploadProgress(prev => ({ ...prev, [zipFileName]: progress }))
       }
-
-      setUploadProgress(prev => ({ ...prev, [zipFileName]: 80 }))
-      const data = await response.json()
-      console.log('Server response data:', data)
       
-      // Check if we have results
-      if (!data || !data.results || !Array.isArray(data.results)) {
-        console.error('Invalid response format:', data)
-        throw new Error('Server returned invalid data format')
-      }
-      
-      console.log(`Successfully processed ZIP: ${data.total_processed} files`)
-      
+      console.log(`✅ ZIP processing complete: ${totalFiles} files`)
       setUploadProgress(prev => ({ ...prev, [zipFileName]: 100 }))
       
-      // Convert results to FileData format
-      const formattedResults = data.results.map((result: any) => {
-        const pathParts = result.original_path?.split('/') || [result.metadata?.filename || 'unknown']
-        const filename = pathParts[pathParts.length - 1]
-        const folderPath = pathParts.slice(0, -1).join('/')
-        
-        return {
-          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          filename: filename,
-          size: result.metadata?.file_size || 0,
-          type: getMimeType(filename),
-          timestamp: new Date().toISOString(),
-          isFromZip: true,
-          zipSource: zipFileName,
-          folderPath: folderPath || undefined,
-          filetype: result.filetype,
-          content_category: result.content_category,
-          confidence_score: result.confidence_score,
-          mime_type: result.mime_type,
-          encoding: result.encoding,
-          language: result.language,
-          metadata: result.metadata
-        }
-      })
-      
-      console.log(`Formatted ${formattedResults.length} results for display`)
-      return formattedResults
     } catch (error) {
-      console.error('❌ Error with server-side ZIP processing:', error)
+      console.error('❌ Error analyzing ZIP:', error)
+      alert(`Failed to process ZIP file: ${error instanceof Error ? error.message : 'Unknown error'}`)
       
-      // Show detailed error to user
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-      alert(`Failed to process ZIP file: ${errorMessage}\n\nCheck browser console (F12) and backend terminal for details.`)
-      
-      // Set progress to 0 to indicate failure
       setUploadProgress(prev => {
         const newProgress = { ...prev }
         delete newProgress[zipFileName]
         return newProgress
       })
-      
-      return []
-    }
-  }
-
-  const analyzeZipFile = async (file: File, zipFileName: string): Promise<void> => {
-    // Use server-side processing for all ZIPs (much faster!)
-    try {
-      setUploadProgress(prev => ({ ...prev, [zipFileName]: 10 }))
-      
-      const results = await classifyZipServerSide(file, zipFileName)
-      
-      // Progressive results - show immediately!
-      if (results.length > 0) {
-        onFilesProcessed(results)
-      }
-      
-      setUploadProgress(prev => ({ ...prev, [zipFileName]: 100 }))
-    } catch (error) {
-      console.error('Error analyzing zip:', error)
     }
   }
 
