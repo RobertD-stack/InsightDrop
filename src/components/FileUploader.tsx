@@ -106,7 +106,7 @@ const FileUploader = ({ onFilesProcessed, processing, setProcessing, selectedMod
     return mimeTypes[ext || ''] || 'application/octet-stream'
   }
 
-  const analyzeZipFile = async (file: File, zipFileName: string): Promise<void> => {
+  const analyzeZipFile = async (file: File, zipFileName: string): Promise<number> => {
     // Client-side ZIP extraction with batch processing
     const BATCH_SIZE = 50  // Process 50 files per API call
     
@@ -211,6 +211,8 @@ const FileUploader = ({ onFilesProcessed, processing, setProcessing, selectedMod
       console.log(`✅ ZIP processing complete: ${totalFiles} files`)
       setUploadProgress(prev => ({ ...prev, [zipFileName]: 100 }))
       
+      return processedCount // Return count of files processed
+      
     } catch (error) {
       console.error('❌ Error analyzing ZIP:', error)
       alert(`Failed to process ZIP file: ${error instanceof Error ? error.message : 'Unknown error'}`)
@@ -220,6 +222,8 @@ const FileUploader = ({ onFilesProcessed, processing, setProcessing, selectedMod
         delete newProgress[zipFileName]
         return newProgress
       })
+      
+      return 0 // Return 0 on error
     }
   }
 
@@ -239,12 +243,13 @@ const FileUploader = ({ onFilesProcessed, processing, setProcessing, selectedMod
     )
     const regularFiles = files.filter(f => !zipFiles.includes(f))
 
-    // Process ZIP files (server-side extraction and classification)
+    // Process ZIP files (client-side extraction, server-side classification)
     for (const zipFile of zipFiles) {
       setUploadProgress(prev => ({ ...prev, [zipFile.name]: 0 }))
       
-      // Server-side processing - returns results automatically
-      await analyzeZipFile(zipFile, zipFile.name)
+      // Process ZIP and count files
+      const zipFileCount = await analyzeZipFile(zipFile, zipFile.name)
+      totalFilesProcessed += zipFileCount
       
       setUploadProgress(prev => {
         const newProgress = { ...prev }
@@ -368,14 +373,22 @@ const FileUploader = ({ onFilesProcessed, processing, setProcessing, selectedMod
     console.log(`Throughput (Real): ${(totalFilesProcessed / totalElapsedSeconds).toFixed(2)} files/second`)
     console.log('='.repeat(60) + '\n')
     
-    // Send final timing update with real elapsed time
+    // Update the cumulative timing with real elapsed time (don't add new files)
     if (totalFilesProcessed > 0) {
-      onFilesProcessed([], {
+      // Send special update that only sets the realElapsedTime without adding files
+      setTimingStats({
         totalTime: totalElapsedSeconds,
-        classificationTime: 0, // Will be accumulated from batches
-        decodeTime: 0, // Will be accumulated from batches
-        filesProcessed: 0, // Already counted in batches
-        avgPerFile: totalElapsedSeconds / totalFilesProcessed,
+        filesProcessed: totalFilesProcessed,
+        avgPerFile: totalElapsedSeconds / totalFilesProcessed
+      })
+      
+      // Notify parent to update realElapsedTime
+      onFilesProcessed([], {
+        totalTime: 0,
+        classificationTime: 0,
+        decodeTime: 0,
+        filesProcessed: 0,
+        avgPerFile: 0,
         realElapsedTime: totalElapsedSeconds
       })
     }

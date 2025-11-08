@@ -27,21 +27,33 @@ function App() {
   }, [])
 
   const handleFilesProcessed = (newResults: FileData[], timing?: TimingData) => {
-    setResults(prev => [...newResults, ...prev])
+    // Only add results if there are any
+    if (newResults.length > 0) {
+      setResults(prev => [...newResults, ...prev])
+    }
     
     // Accumulate timing data
     if (timing) {
       setCumulativeTiming(prev => {
+        // Check if this is a special update for realElapsedTime only
+        const isRealTimeUpdate = timing.filesProcessed === 0 && timing.realElapsedTime !== undefined
+        
+        if (isRealTimeUpdate) {
+          // Just update the realElapsedTime, keep everything else
+          console.log('📊 Final Timing Update (Real Elapsed Time):')
+          console.log(`  Total Real Elapsed: ${timing.realElapsedTime.toFixed(3)}s`)
+          return {
+            ...prev,
+            realElapsedTime: timing.realElapsedTime
+          }
+        }
+        
+        // Normal batch timing update
         const newTotalFiles = prev.filesProcessed + timing.filesProcessed
         const newTotalTime = prev.totalTime + timing.totalTime
         const newClassificationTime = prev.classificationTime + timing.classificationTime
         const newDecodeTime = prev.decodeTime + timing.decodeTime
         const newAvgPerFile = newTotalFiles > 0 ? newClassificationTime / newTotalFiles : 0
-        
-        // If this update includes real elapsed time, use it
-        const realElapsedTime = timing.realElapsedTime 
-          ? timing.realElapsedTime 
-          : prev.realElapsedTime
         
         const updated = {
           totalTime: newTotalTime,
@@ -49,13 +61,12 @@ function App() {
           decodeTime: newDecodeTime,
           filesProcessed: newTotalFiles,
           avgPerFile: newAvgPerFile,
-          realElapsedTime: realElapsedTime
+          realElapsedTime: prev.realElapsedTime // Keep existing realElapsedTime
         }
         
-        console.log('📊 Timing Update:')
+        console.log('📊 Batch Timing Update:')
         console.log(`  Batch: +${timing.filesProcessed} files, +${timing.classificationTime.toFixed(3)}s`)
         console.log(`  Cumulative: ${newTotalFiles} files, ${newClassificationTime.toFixed(3)}s backend`)
-        console.log(`  Real Elapsed: ${realElapsedTime?.toFixed(3) || 'N/A'}s`)
         console.log(`  Average per file: ${(newAvgPerFile * 1000).toFixed(2)}ms`)
         
         return updated
