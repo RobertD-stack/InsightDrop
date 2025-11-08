@@ -25,6 +25,46 @@ const FileUploader = ({ onFilesProcessed, processing, setProcessing }: FileUploa
     })
   }
 
+  const fileToBase64 = async (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => {
+        const base64 = (reader.result as string).split(',')[1]
+        resolve(base64)
+      }
+      reader.onerror = reject
+      reader.readAsDataURL(file)
+    })
+  }
+
+  const classifyFile = async (filename: string, binaryData: Uint8Array): Promise<any> => {
+    try {
+      // Convert Uint8Array to base64
+      const base64 = btoa(String.fromCharCode(...binaryData))
+      
+      const response = await fetch('http://localhost:5000/api/classify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          filename,
+          binaryData: base64
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error(`Classification failed: ${response.statusText}`)
+      }
+
+      const data = await response.json()
+      return data.result
+    } catch (error) {
+      console.error('Classification error:', error)
+      return null
+    }
+  }
+
   const getMimeType = (filename: string): string => {
     const ext = filename.split('.').pop()?.toLowerCase()
     const mimeTypes: Record<string, string> = {
@@ -97,16 +137,28 @@ const FileUploader = ({ onFilesProcessed, processing, setProcessing }: FileUploa
         const filename = pathParts[pathParts.length - 1]
         const folderPath = pathParts.slice(0, -1).join('/')
         
+        // Classify the extracted file
+        const classification = await classifyFile(filename, binaryData)
+        
         results.push({
           id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           filename: filename,
           size: binaryData.length,
           type: getMimeType(filename),
-          binaryData: binaryData,
           timestamp: new Date().toISOString(),
           isFromZip: true,
           zipSource: zipFileName,
           folderPath: folderPath || undefined,
+          // Add classification results
+          ...(classification && {
+            filetype: classification.filetype,
+            content_category: classification.content_category,
+            confidence_score: classification.confidence_score,
+            mime_type: classification.mime_type,
+            encoding: classification.encoding,
+            language: classification.language,
+            metadata: classification.metadata
+          })
         })
       }
       
@@ -140,25 +192,35 @@ const FileUploader = ({ onFilesProcessed, processing, setProcessing }: FileUploa
         // Small delay to show completion
         await new Promise(resolve => setTimeout(resolve, 200))
       } else {
-        // Regular file - convert to binary
-        // Simulate progress while reading
-        for (let i = 0; i <= 80; i += 20) {
-          await new Promise(resolve => setTimeout(resolve, 50))
-          setUploadProgress(prev => ({ ...prev, [file.name]: i }))
-        }
-
+        // Regular file - convert to binary and classify
+        setUploadProgress(prev => ({ ...prev, [file.name]: 30 }))
+        
         const binaryData = await convertFileToBinary(file)
+        
+        setUploadProgress(prev => ({ ...prev, [file.name]: 60 }))
+        
+        // Classify file using AI
+        const classification = await classifyFile(file.name, binaryData)
         
         setUploadProgress(prev => ({ ...prev, [file.name]: 100 }))
         
-        // Create result object
+        // Create result object with classification
         const result: FileData = {
           id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           filename: file.name,
           size: file.size,
           type: file.type || getMimeType(file.name),
-          binaryData: binaryData,
           timestamp: new Date().toISOString(),
+          // Add classification results
+          ...(classification && {
+            filetype: classification.filetype,
+            content_category: classification.content_category,
+            confidence_score: classification.confidence_score,
+            mime_type: classification.mime_type,
+            encoding: classification.encoding,
+            language: classification.language,
+            metadata: classification.metadata
+          })
         }
         
         results.push(result)

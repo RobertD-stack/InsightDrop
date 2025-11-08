@@ -17,40 +17,8 @@ const formatTimestamp = (timestamp: string) => {
   return new Date(timestamp).toLocaleString()
 }
 
-const bytesToHex = (bytes: Uint8Array, maxBytes: number = 256): string => {
-  const limit = Math.min(bytes.length, maxBytes)
-  let hex = ''
-  for (let i = 0; i < limit; i++) {
-    const byte = bytes[i].toString(16).padStart(2, '0').toUpperCase()
-    hex += byte + ' '
-    if ((i + 1) % 16 === 0) hex += '\n'
-  }
-  if (bytes.length > maxBytes) {
-    hex += `\n... (${bytes.length - maxBytes} more bytes)`
-  }
-  return hex.trim()
-}
-
 const FileCard = ({ file }: { file: FileData }) => {
   const [expanded, setExpanded] = useState(false)
-
-  // Calculate statistics once
-  const getStats = () => {
-    let sum = 0
-    let min = 255
-    let max = 0
-    for (let i = 0; i < file.binaryData.length; i++) {
-      const byte = file.binaryData[i]
-      sum += byte
-      if (byte < min) min = byte
-      if (byte > max) max = byte
-    }
-    return {
-      avg: (sum / file.binaryData.length).toFixed(2),
-      min,
-      max
-    }
-  }
 
   return (
     <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10 hover:bg-white/10 transition-all duration-300">
@@ -89,76 +57,84 @@ const FileCard = ({ file }: { file: FileData }) => {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
         <div className="space-y-1">
-          <p className="text-xs text-gray-500 uppercase tracking-wide">MIME Type</p>
-          <p className="text-sm font-semibold text-white truncate" title={file.type}>
-            {file.type}
-          </p>
-        </div>
-        <div className="space-y-1">
-          <p className="text-xs text-gray-500 uppercase tracking-wide">Binary Size</p>
+          <p className="text-xs text-gray-500 uppercase tracking-wide">File Type</p>
           <p className="text-sm font-semibold text-white">
-            {file.binaryData.length} bytes
+            {file.filetype || file.type || 'Unknown'}
           </p>
         </div>
         <div className="space-y-1">
-          <p className="text-xs text-gray-500 uppercase tracking-wide">First Bytes</p>
-          <p className="text-sm font-mono text-green-400">
-            {bytesToHex(file.binaryData, 8)}
+          <p className="text-xs text-gray-500 uppercase tracking-wide">Category</p>
+          <p className="text-sm font-semibold text-white capitalize">
+            {file.content_category || 'Unknown'}
+          </p>
+        </div>
+        <div className="space-y-1">
+          <p className="text-xs text-gray-500 uppercase tracking-wide">Confidence</p>
+          <p className={`text-sm font-bold ${
+            file.confidence_score ? 
+              file.confidence_score >= 0.9 ? 'text-green-400' :
+              file.confidence_score >= 0.7 ? 'text-yellow-400' :
+              'text-orange-400'
+            : 'text-gray-400'
+          }`}>
+            {file.confidence_score ? `${(file.confidence_score * 100).toFixed(1)}%` : 'N/A'}
+          </p>
+        </div>
+        <div className="space-y-1">
+          <p className="text-xs text-gray-500 uppercase tracking-wide">File Size</p>
+          <p className="text-sm font-semibold text-white">
+            {formatFileSize(file.size)}
           </p>
         </div>
       </div>
 
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="flex items-center space-x-2 text-sm text-blue-400 hover:text-blue-300 transition-colors"
-      >
-        <Binary className="w-4 h-4" />
-        <span>{expanded ? 'Hide' : 'Show'} Binary Data</span>
-        {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-      </button>
+      {file.metadata && Object.keys(file.metadata).length > 0 && (
+        <>
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="flex items-center space-x-2 text-sm text-blue-400 hover:text-blue-300 transition-colors"
+          >
+            <Binary className="w-4 h-4" />
+            <span>{expanded ? 'Hide' : 'Show'} Classification Details</span>
+            {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </button>
 
-      {expanded && (
-        <div className="mt-4 pt-4 border-t border-white/10">
-          <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">
-            Hexadecimal Representation (first 256 bytes)
-          </p>
-          <div className="bg-black/30 rounded-lg p-4 overflow-x-auto">
-            <pre className="text-xs font-mono text-green-400 whitespace-pre">
-              {bytesToHex(file.binaryData, 256)}
-            </pre>
-          </div>
-          
-          <div className="mt-4">
-            <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">
-              Binary Statistics
-            </p>
-            {(() => {
-              const stats = getStats()
-              return (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
-                  <div>
-                    <span className="text-gray-500">Total Bytes:</span>{' '}
-                    <span className="text-gray-300 font-medium">{file.binaryData.length}</span>
+          {expanded && (
+            <div className="mt-4 pt-4 border-t border-white/10">
+              <p className="text-xs text-gray-500 uppercase tracking-wide mb-3">
+                Classification Metadata
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {file.mime_type && (
+                  <div className="bg-black/20 rounded-lg p-3">
+                    <span className="text-xs text-gray-500">MIME Type:</span>
+                    <p className="text-sm text-white font-medium mt-1">{file.mime_type}</p>
                   </div>
-                  <div>
-                    <span className="text-gray-500">Avg Value:</span>{' '}
-                    <span className="text-gray-300 font-medium">{stats.avg}</span>
+                )}
+                {file.encoding && (
+                  <div className="bg-black/20 rounded-lg p-3">
+                    <span className="text-xs text-gray-500">Encoding:</span>
+                    <p className="text-sm text-white font-medium mt-1">{file.encoding}</p>
                   </div>
-                  <div>
-                    <span className="text-gray-500">Min Value:</span>{' '}
-                    <span className="text-gray-300 font-medium">{stats.min}</span>
+                )}
+                {file.language && (
+                  <div className="bg-black/20 rounded-lg p-3">
+                    <span className="text-xs text-gray-500">Language:</span>
+                    <p className="text-sm text-white font-medium mt-1">{file.language}</p>
                   </div>
-                  <div>
-                    <span className="text-gray-500">Max Value:</span>{' '}
-                    <span className="text-gray-300 font-medium">{stats.max}</span>
+                )}
+                {Object.entries(file.metadata).map(([key, value]) => (
+                  <div key={key} className="bg-black/20 rounded-lg p-3">
+                    <span className="text-xs text-gray-500 capitalize">{key.replace(/_/g, ' ')}:</span>
+                    <p className="text-sm text-white font-medium mt-1">{String(value)}</p>
                   </div>
-                </div>
-              )
-            })()}
-          </div>
-        </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
       )}
     </div>
   )
