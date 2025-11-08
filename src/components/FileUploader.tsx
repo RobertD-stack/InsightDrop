@@ -1,4 +1,5 @@
-import { useCallback, useState } from 'react'
+// React import needed for JSX transform
+import React, { useCallback, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { Upload, File as FileIcon, Loader2 } from 'lucide-react'
 import { FileData } from '../types'

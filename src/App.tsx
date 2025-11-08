@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import React, { useState } from 'react'
 import FileUploader from './components/FileUploader'
 import ResultsDisplay from './components/ResultsDisplay'
 import Header from './components/Header'

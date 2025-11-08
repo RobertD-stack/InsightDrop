@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import React, { useState } from 'react'
 import { FileData } from '../types'
 import { File, Binary, ChevronDown, ChevronUp, Archive, Folder } from 'lucide-react'
 
