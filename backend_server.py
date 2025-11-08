@@ -2,12 +2,23 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from src.pipeline import FileClassificationPipeline
 import base64
+import time
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for React frontend
+
+# Enable CORS with proper configuration for all methods including FormData
+CORS(app, resources={
+    r"/api/*": {
+        "origins": ["http://localhost:3000", "http://localhost:5173", "http://localhost:5174"],
+        "methods": ["GET", "POST", "OPTIONS"],
+        "allow_headers": ["Content-Type"],
+        "supports_credentials": False
+    }
+})
 
 # Configure for large file processing (5000+ files)
-app.config['MAX_CONTENT_LENGTH'] = 1024 * 1024 * 1024  # 1GB max request size
+# Support both FormData (2GB) and JSON (1GB) uploads
+app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024 * 1024  # 2GB max request size
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
 
 # Initialize the AI pipeline
@@ -21,6 +32,8 @@ def classify_file():
     Returns: classification result
     """
     try:
+        start_time = time.time()
+        
         data = request.json
         filename = data.get('filename')
         binary_data_base64 = data.get('binaryData')
@@ -29,15 +42,28 @@ def classify_file():
             return jsonify({'error': 'Missing filename or binaryData'}), 400
         
         # Decode base64 to bytes
+        decode_start = time.time()
         binary_data = base64.b64decode(binary_data_base64)
+        decode_time = time.time() - decode_start
         
         # Process through AI pipeline
+        classify_start = time.time()
         result = pipeline.process_file(binary_data, filename)
+        classify_time = time.time() - classify_start
+        
+        total_time = time.time() - start_time
+        
+        print(f"⏱️  Single file '{filename}': {total_time:.4f}s (decode: {decode_time:.4f}s, classify: {classify_time:.4f}s)")
         
         # Convert to dict and return
         return jsonify({
             'success': True,
-            'result': result.to_dict()
+            'result': result.to_dict(),
+            'timing': {
+                'total_time': round(total_time, 4),
+                'decode_time': round(decode_time, 4),
+                'classification_time': round(classify_time, 4)
+            }
         })
         
     except Exception as e:
@@ -50,17 +76,29 @@ def classify_file():
 def classify_batch():
     """
     Endpoint to classify multiple files
-    Expects: { files: [{ filename: string, binaryData: base64 string }, ...] }
+    Expects: { files: [{ filename: string, binaryData: base64 string }, ...], model: string (optional) }
     Returns: array of classification results
     """
     try:
+        start_time = time.time()
+        
         data = request.json
         files_data = data.get('files', [])
+        model = data.get('model')  # Optional model parameter (for future use)
+        
+        if model:
+            print(f"📊 Model selection: {model} (currently using default pipeline)")
         
         if not files_data:
             return jsonify({'error': 'No files provided'}), 400
         
+        print(f"\n{'='*60}")
+        print(f"📊 BATCH CLASSIFICATION REQUEST")
+        print(f"{'='*60}")
+        print(f"Files in batch: {len(files_data)}")
+        
         # Prepare files for batch processing
+        decode_start = time.time()
         files_to_process = []
         for file_data in files_data:
             filename = file_data.get('filename')
@@ -70,16 +108,38 @@ def classify_batch():
                 binary_data = base64.b64decode(binary_data_base64)
                 files_to_process.append((binary_data, filename))
         
+        decode_time = time.time() - decode_start
+        print(f"⏱️  Base64 decode time: {decode_time:.3f}s")
+        
         # Process batch through AI pipeline
+        classify_start = time.time()
         results = pipeline.process_batch(files_to_process)
+        classify_time = time.time() - classify_start
+        
+        total_time = time.time() - start_time
+        avg_time = classify_time / len(files_to_process) if files_to_process else 0
+        
+        print(f"⏱️  Classification time: {classify_time:.3f}s")
+        print(f"⏱️  Average per file: {avg_time:.4f}s")
+        print(f"⏱️  Total processing time: {total_time:.3f}s")
+        print(f"✅ Successfully classified {len(results)} files")
+        print(f"{'='*60}\n")
         
         # Convert all results to dicts
         return jsonify({
             'success': True,
-            'results': [result.to_dict() for result in results]
+            'results': [result.to_dict() for result in results],
+            'timing': {
+                'total_time': round(total_time, 3),
+                'decode_time': round(decode_time, 3),
+                'classification_time': round(classify_time, 3),
+                'average_per_file': round(avg_time, 4),
+                'files_processed': len(results)
+            }
         })
         
     except Exception as e:
+        print(f"❌ Error in batch classification: {e}")
         return jsonify({
             'success': False,
             'error': str(e)
@@ -89,7 +149,7 @@ def classify_batch():
 def classify_zip():
     """
     Endpoint to classify all files in a ZIP archive (server-side extraction)
-    Expects: { zipData: base64 string }
+    Expects: FormData with 'zipFile' field OR JSON with 'zipData' base64 string
     Returns: array of classification results
     """
     try:
@@ -100,26 +160,38 @@ def classify_zip():
         print("📦 ZIP CLASSIFICATION REQUEST RECEIVED")
         print("="*60)
         
-        data = request.json
-        zip_base64 = data.get('zipData')
-        
-        if not zip_base64:
-            print("❌ Error: Missing zipData in request")
-            return jsonify({'error': 'Missing zipData'}), 400
-        
-        print(f"✅ Received base64 data: {len(zip_base64)} characters")
-        
-        # Decode ZIP
-        try:
-            zip_data = base64.b64decode(zip_base64)
-        except Exception as e:
-            print(f"❌ Error: Failed to decode base64 - {e}")
-            return jsonify({
-                'success': False,
-                'error': f'Invalid base64 data: {str(e)}'
-            }), 400
-        
-        print(f"✅ Decoded ZIP size: {len(zip_data) / 1024 / 1024:.2f} MB")
+        # Check if request is FormData (binary upload) or JSON (base64)
+        # Support both methods for flexibility
+        if 'zipFile' in request.files:
+            # FormData upload - better for large files (no base64 overhead)
+            zip_file_obj = request.files['zipFile']
+            zip_data = zip_file_obj.read()
+            print(f"✅ Received binary ZIP via FormData: {len(zip_data) / 1024 / 1024:.2f} MB")
+        else:
+            # JSON with base64 - for smaller files or API compatibility
+            data = request.json
+            if not data:
+                return jsonify({'error': 'Missing zipData or zipFile'}), 400
+                
+            zip_base64 = data.get('zipData')
+            
+            if not zip_base64:
+                print("❌ Error: Missing zipData in request")
+                return jsonify({'error': 'Missing zipData or zipFile'}), 400
+            
+            print(f"✅ Received base64 data: {len(zip_base64)} characters")
+            
+            # Decode ZIP
+            try:
+                zip_data = base64.b64decode(zip_base64)
+            except Exception as e:
+                print(f"❌ Error: Failed to decode base64 - {e}")
+                return jsonify({
+                    'success': False,
+                    'error': f'Invalid base64 data: {str(e)}'
+                }), 400
+            
+            print(f"✅ Decoded ZIP size: {len(zip_data) / 1024 / 1024:.2f} MB")
         
         # Debug: Show first bytes to help diagnose
         if len(zip_data) > 0:

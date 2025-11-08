@@ -52,6 +52,11 @@ const FileCard = ({ file }: { file: FileData }) => {
             )}
             <p className="text-sm text-gray-400">
               {formatFileSize(file.size)} • {formatTimestamp(file.timestamp)}
+              {file.aiModel && (
+                <span className="ml-2 px-2 py-0.5 bg-green-500/20 text-green-300 text-xs rounded border border-green-400/30">
+                  AI: {file.aiModel}
+                </span>
+              )}
             </p>
           </div>
         </div>

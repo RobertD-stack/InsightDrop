@@ -3,10 +3,12 @@ import FileUploader from './components/FileUploader'
 import ResultsDisplay from './components/ResultsDisplay'
 import Header from './components/Header'
 import { FileData } from './types'
+import { generatePDFSummary } from './utils/pdfGenerator'
 
 function App() {
   const [results, setResults] = useState<FileData[]>([])
   const [processing, setProcessing] = useState(false)
+  const [selectedModel, setSelectedModel] = useState('signature-based')
 
   const handleFilesProcessed = (newResults: FileData[]) => {
     setResults(prev => [...newResults, ...prev])
@@ -16,18 +18,57 @@ function App() {
     setResults([])
   }
 
+  const downloadPDFSummary = () => {
+    try {
+      const pdf = generatePDFSummary(results)
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5)
+      pdf.save(`file-classification-summary-${timestamp}.pdf`)
+    } catch (error) {
+      console.error('Error generating PDF:', error)
+      alert('Failed to generate PDF summary')
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
       <Header />
       
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-7xl mx-auto space-y-8">
+          {/* Model Selection */}
+          <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 shadow-2xl border border-white/20">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-white mb-2">AI Model Selection</h3>
+                <p className="text-sm text-gray-400">Choose the classification model to use</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <label className="text-sm text-gray-300 font-medium">Model:</label>
+                <select
+                  value={selectedModel}
+                  onChange={(e) => setSelectedModel(e.target.value)}
+                  disabled={processing}
+                  className="px-4 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <option value="signature-based" className="bg-slate-800">Signature-Based (Fast)</option>
+                  <option value="magic-library" className="bg-slate-800">Magic Library (Accurate)</option>
+                  <option value="hybrid" className="bg-slate-800">Hybrid (Balanced)</option>
+                  <option value="ml-enhanced" className="bg-slate-800">ML-Enhanced (Experimental)</option>
+                </select>
+                <div className="px-3 py-2 bg-blue-500/20 border border-blue-400/30 rounded-lg">
+                  <span className="text-xs text-blue-300 font-medium">Current: {selectedModel}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Upload Section */}
           <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 shadow-2xl border border-white/20">
             <FileUploader 
               onFilesProcessed={handleFilesProcessed}
               processing={processing}
               setProcessing={setProcessing}
+              selectedModel={selectedModel}
             />
           </div>
 
@@ -38,12 +79,23 @@ function App() {
                 <h2 className="text-2xl font-bold text-white">
                   Uploaded Files ({results.length})
                 </h2>
-                <button
-                  onClick={clearResults}
-                  className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-200 rounded-lg transition-colors border border-red-400/30"
-                >
-                  Clear All
-                </button>
+                <div className="flex gap-3">
+                  <button
+                    onClick={downloadPDFSummary}
+                    className="px-4 py-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-200 rounded-lg transition-colors border border-blue-400/30 flex items-center gap-2"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Download PDF Summary
+                  </button>
+                  <button
+                    onClick={clearResults}
+                    className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-200 rounded-lg transition-colors border border-red-400/30"
+                  >
+                    Clear All
+                  </button>
+                </div>
               </div>
               <ResultsDisplay results={results} />
             </div>
