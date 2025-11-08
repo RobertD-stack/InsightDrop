@@ -26,25 +26,62 @@ class FileClassificationResult:
 
 # File type to category mapping
 CATEGORY_MAP = {
-    # Media files
-    'image': ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'webp', 'tiff', 'ico'],
-    'video': ['mp4', 'avi', 'mov', 'mkv', 'flv', 'wmv', 'webm', 'mpeg', 'mpg'],
-    'audio': ['mp3', 'wav', 'flac', 'aac', 'ogg', 'wma', 'm4a', 'opus'],
+    # Media files - Images
+    'image': [
+        'jpg', 'jpeg', 'png', 'gif', 'bmp', 'svg', 'webp', 'tiff', 'ico', 
+        'heic', 'heif', 'jfif', 'jp2', 'jpx', 'j2k', 'j2c'
+    ],
+    
+    # Media files - Videos
+    'video': [
+        'mp4', 'avi', 'mov', 'mkv', 'flv', 'wmv', 'webm', 'mpeg', 'mpg', 
+        'm4v', '3gp', '3g2', 'asf', 'rm', 'rmvb', 'vob', 'ogv', 'divx'
+    ],
+    
+    # Media files - Audio
+    'audio': [
+        'mp3', 'wav', 'flac', 'aac', 'ogg', 'wma', 'm4a', 'opus', 'amr',
+        'au', 'ra', 'aiff', 'aif', 'mid', 'midi', 'wv', 'ape', 'ac3'
+    ],
     
     # Structured data
-    'structured': ['csv', 'json', 'xml', 'xlsx', 'xls', 'sql', 'db', 'sqlite'],
+    'structured': [
+        'csv', 'json', 'xml', 'xlsx', 'xls', 'sql', 'db', 'sqlite', 'mdb',
+        'yaml', 'yml', 'toml', 'ini', 'cfg', 'conf', 'properties', 'tsv',
+        'ods', 'parquet', 'avro', 'orc', 'feather'
+    ],
     
     # Documents
-    'document': ['pdf', 'doc', 'docx', 'txt', 'rtf', 'odt', 'ppt', 'pptx'],
+    'document': [
+        'pdf', 'doc', 'docx', 'txt', 'rtf', 'odt', 'ppt', 'pptx', 'odp',
+        'pages', 'key', 'numbers', 'xps', 'epub', 'mobi', 'azw', 'fb2',
+        'md', 'markdown', 'rst', 'tex', 'latex', 'djvu'
+    ],
     
     # Executables
-    'executable': ['exe', 'dll', 'so', 'bin', 'app', 'msi', 'deb', 'rpm'],
+    'executable': [
+        'exe', 'dll', 'so', 'bin', 'app', 'msi', 'deb', 'rpm', 'dmg',
+        'pkg', 'apk', 'ipa', 'elf', 'macho', 'class', 'jar', 'war',
+        'ear', 'sh', 'bat', 'cmd', 'ps1', 'vbs', 'com'
+    ],
     
     # Archives
-    'archive': ['zip', 'rar', 'tar', 'gz', '7z', 'bz2', 'xz'],
+    'archive': [
+        'zip', 'rar', 'tar', 'gz', '7z', 'bz2', 'xz', 'lz', 'lzma',
+        'cab', 'arj', 'ace', 'z', 'lzh', 'sit', 'sitx', 'dmg', 'iso',
+        'img', 'tar.gz', 'tar.bz2', 'tar.xz', 'zipx'
+    ],
     
     # Code
-    'code': ['py', 'js', 'java', 'cpp', 'c', 'h', 'html', 'css', 'php', 'rb', 'go'],
+    'code': [
+        'py', 'pyw', 'pyc', 'js', 'jsx', 'ts', 'tsx', 'java', 'class',
+        'cpp', 'cxx', 'cc', 'c', 'h', 'hpp', 'hxx', 'html', 'htm', 'xhtml',
+        'css', 'scss', 'sass', 'less', 'php', 'rb', 'go', 'rs', 'swift',
+        'kt', 'scala', 'clj', 'cljs', 'lua', 'dart', 'r', 'm', 'mm',
+        'pl', 'pm', 'sh', 'bash', 'zsh', 'fish', 'ps1', 'bat', 'cmd',
+        'sql', 'cs', 'vb', 'fs', 'ml', 'mli', 'hs', 'lhs', 'elm',
+        'ex', 'exs', 'erl', 'hrl', 'vim', 'vimrc', 'dockerfile', 'makefile'
+    ],
 }
 
 # Reverse mapping for quick lookup
