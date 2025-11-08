@@ -101,8 +101,36 @@ export const generatePDFSummary = (files: FileData[]) => {
     stats.accuracy = stats.count > 0 ? stats.correctCount / stats.count : 0
   })
   
-  // Sort file types by count (descending)
+  // Helper: Check if files with this extension actually exist
+  const filesWithExtensionExist = (type: string): boolean => {
+    return files.some(f => {
+      const ext = f.filename.split('.').pop()?.toLowerCase()
+      const predictedType = type.toLowerCase()
+      
+      // Direct match
+      if (ext === predictedType) return true
+      
+      // Check aliases
+      const aliases: { [key: string]: string[] } = {
+        'jpg': ['jpeg', 'jpg'],
+        'jpeg': ['jpeg', 'jpg'],
+        'htm': ['html', 'htm'],
+        'html': ['html', 'htm'],
+        'js': ['javascript', 'js'],
+        'ts': ['typescript', 'ts'],
+        'py': ['python', 'py'],
+      }
+      
+      if (aliases[ext || '']?.includes(predictedType)) return true
+      if (aliases[predictedType]?.includes(ext || '')) return true
+      
+      return false
+    })
+  }
+  
+  // Sort file types by count (descending) and filter to only existing types
   const sortedFiletypes = Object.entries(filetypeStats)
+    .filter(([type]) => filesWithExtensionExist(type))  // Only show types that actually exist
     .sort((a, b) => b[1].count - a[1].count)
   
   // ZIP files info
