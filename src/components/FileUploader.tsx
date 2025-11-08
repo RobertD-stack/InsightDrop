@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react'
 import { useDropzone } from 'react-dropzone'
 import { Upload, File as FileIcon, Loader2 } from 'lucide-react'
 import { FileData } from '../types'
+import JSZip from 'jszip'
 
 interface FileUploaderProps {
   onFilesProcessed: (results: FileData[]) => void
@@ -24,6 +25,99 @@ const FileUploader = ({ onFilesProcessed, processing, setProcessing }: FileUploa
     })
   }
 
+  const getMimeType = (filename: string): string => {
+    const ext = filename.split('.').pop()?.toLowerCase()
+    const mimeTypes: Record<string, string> = {
+      // Documents
+      'txt': 'text/plain',
+      'pdf': 'application/pdf',
+      'doc': 'application/msword',
+      'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'xls': 'application/vnd.ms-excel',
+      'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'csv': 'text/csv',
+      // Images
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg',
+      'png': 'image/png',
+      'gif': 'image/gif',
+      'webp': 'image/webp',
+      'svg': 'image/svg+xml',
+      // Media
+      'mp3': 'audio/mpeg',
+      'wav': 'audio/wav',
+      'mp4': 'video/mp4',
+      'avi': 'video/x-msvideo',
+      // Archives
+      'zip': 'application/zip',
+      'rar': 'application/x-rar-compressed',
+      '7z': 'application/x-7z-compressed',
+      // Code
+      'js': 'text/javascript',
+      'ts': 'text/typescript',
+      'py': 'text/x-python',
+      'java': 'text/x-java',
+      'cpp': 'text/x-c++src',
+      'html': 'text/html',
+      'css': 'text/css',
+      'json': 'application/json',
+      'xml': 'application/xml',
+    }
+    return mimeTypes[ext || ''] || 'application/octet-stream'
+  }
+
+  const analyzeZipFile = async (file: File, zipFileName: string): Promise<FileData[]> => {
+    const results: FileData[] = []
+    
+    try {
+      const arrayBuffer = await file.arrayBuffer()
+      const zip = await JSZip.loadAsync(arrayBuffer)
+      
+      // Get all file entries
+      const fileEntries = Object.entries(zip.files)
+      let processedCount = 0
+      
+      for (const [path, zipEntry] of fileEntries) {
+        // Skip directories
+        if (zipEntry.dir) continue
+        
+        // Update progress for zip extraction
+        processedCount++
+        const progress = Math.floor((processedCount / fileEntries.length) * 100)
+        setUploadProgress(prev => ({ 
+          ...prev, 
+          [zipFileName]: Math.min(progress, 95) 
+        }))
+        
+        // Extract file as binary
+        const binaryData = await zipEntry.async('uint8array')
+        
+        // Parse folder path
+        const pathParts = path.split('/')
+        const filename = pathParts[pathParts.length - 1]
+        const folderPath = pathParts.slice(0, -1).join('/')
+        
+        results.push({
+          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          filename: filename,
+          size: binaryData.length,
+          type: getMimeType(filename),
+          binaryData: binaryData,
+          timestamp: new Date().toISOString(),
+          isFromZip: true,
+          zipSource: zipFileName,
+          folderPath: folderPath || undefined,
+        })
+      }
+      
+      setUploadProgress(prev => ({ ...prev, [zipFileName]: 100 }))
+    } catch (error) {
+      console.error('Error analyzing zip:', error)
+    }
+    
+    return results
+  }
+
   const processFiles = async (files: File[]) => {
     setProcessing(true)
     const results: FileData[] = []
@@ -32,30 +126,45 @@ const FileUploader = ({ onFilesProcessed, processing, setProcessing }: FileUploa
       // Show upload progress
       setUploadProgress(prev => ({ ...prev, [file.name]: 0 }))
       
-      // Simulate progress while reading
-      for (let i = 0; i <= 80; i += 20) {
-        await new Promise(resolve => setTimeout(resolve, 50))
-        setUploadProgress(prev => ({ ...prev, [file.name]: i }))
-      }
+      // Check if it's a zip file
+      const isZipFile = file.name.toLowerCase().endsWith('.zip') || 
+                        file.type === 'application/zip' ||
+                        file.type === 'application/x-zip-compressed'
+      
+      if (isZipFile) {
+        // Extract and analyze all files inside the zip
+        setUploadProgress(prev => ({ ...prev, [file.name]: 10 }))
+        const zipFiles = await analyzeZipFile(file, file.name)
+        results.push(...zipFiles)
+        
+        // Small delay to show completion
+        await new Promise(resolve => setTimeout(resolve, 200))
+      } else {
+        // Regular file - convert to binary
+        // Simulate progress while reading
+        for (let i = 0; i <= 80; i += 20) {
+          await new Promise(resolve => setTimeout(resolve, 50))
+          setUploadProgress(prev => ({ ...prev, [file.name]: i }))
+        }
 
-      // Convert file to binary
-      const binaryData = await convertFileToBinary(file)
-      
-      setUploadProgress(prev => ({ ...prev, [file.name]: 100 }))
-      
-      // Create result object
-      const result: FileData = {
-        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        filename: file.name,
-        size: file.size,
-        type: file.type || 'application/octet-stream',
-        binaryData: binaryData,
-        timestamp: new Date().toISOString(),
+        const binaryData = await convertFileToBinary(file)
+        
+        setUploadProgress(prev => ({ ...prev, [file.name]: 100 }))
+        
+        // Create result object
+        const result: FileData = {
+          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          filename: file.name,
+          size: file.size,
+          type: file.type || getMimeType(file.name),
+          binaryData: binaryData,
+          timestamp: new Date().toISOString(),
+        }
+        
+        results.push(result)
+        
+        await new Promise(resolve => setTimeout(resolve, 100))
       }
-      
-      results.push(result)
-      
-      await new Promise(resolve => setTimeout(resolve, 100))
       
       setUploadProgress(prev => {
         const newProgress = { ...prev }

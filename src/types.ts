@@ -5,5 +5,8 @@ export interface FileData {
   type: string
   binaryData: Uint8Array
   timestamp: string
+  isFromZip?: boolean
+  zipSource?: string
+  folderPath?: string
 }
 

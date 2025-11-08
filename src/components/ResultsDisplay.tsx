@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { FileData } from '../types'
-import { File, Binary, ChevronDown, ChevronUp } from 'lucide-react'
+import { File, Binary, ChevronDown, ChevronUp, Archive, Folder } from 'lucide-react'
 
 interface ResultsDisplayProps {
   results: FileData[]
@@ -56,13 +56,32 @@ const FileCard = ({ file }: { file: FileData }) => {
     <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10 hover:bg-white/10 transition-all duration-300">
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-start space-x-3 flex-1 min-w-0">
-          <div className="p-2 rounded-lg bg-blue-500/20 text-blue-300 border border-blue-400/30">
-            <File className="w-5 h-5" />
+          <div className={`p-2 rounded-lg ${file.isFromZip ? 'bg-purple-500/20 text-purple-300 border border-purple-400/30' : 'bg-blue-500/20 text-blue-300 border border-blue-400/30'}`}>
+            {file.isFromZip ? <Archive className="w-5 h-5" /> : <File className="w-5 h-5" />}
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="text-lg font-semibold text-white truncate" title={file.filename}>
-              {file.filename}
-            </h3>
+            <div className="flex items-center gap-2 mb-1">
+              <h3 className="text-lg font-semibold text-white truncate" title={file.filename}>
+                {file.filename}
+              </h3>
+              {file.isFromZip && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-500/20 text-purple-300 border border-purple-400/30">
+                  <Archive className="w-3 h-3 mr-1" />
+                  From ZIP
+                </span>
+              )}
+            </div>
+            {file.isFromZip && file.zipSource && (
+              <p className="text-xs text-gray-500 mb-1">
+                Source: {file.zipSource}
+              </p>
+            )}
+            {file.folderPath && (
+              <p className="text-xs text-gray-500 flex items-center gap-1 mb-1">
+                <Folder className="w-3 h-3" />
+                {file.folderPath}
+              </p>
+            )}
             <p className="text-sm text-gray-400">
               {formatFileSize(file.size)} • {formatTimestamp(file.timestamp)}
             </p>

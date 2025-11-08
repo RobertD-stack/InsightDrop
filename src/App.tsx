@@ -55,12 +55,19 @@ function App() {
               <h3 className="text-xl font-semibold text-white mb-4">
                 File to Binary Converter
               </h3>
-              <div className="grid md:grid-cols-2 gap-6 text-gray-300">
+              <div className="grid md:grid-cols-3 gap-6 text-gray-300">
                 <div className="space-y-2">
                   <div className="text-3xl">📁</div>
                   <h4 className="font-semibold text-white">Upload Files</h4>
                   <p className="text-sm">
                     Drag and drop or click to upload any file type. All files will be converted to binary data.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <div className="text-3xl">📦</div>
+                  <h4 className="font-semibold text-white">ZIP Extraction</h4>
+                  <p className="text-sm">
+                    Upload ZIP files to automatically extract and analyze every file within every folder.
                   </p>
                 </div>
                 <div className="space-y-2">
