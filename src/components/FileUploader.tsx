@@ -13,6 +13,7 @@ interface FileUploaderProps {
 
 const FileUploader = ({ onFilesProcessed, processing, setProcessing, selectedModel }: FileUploaderProps) => {
   const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({})
+  const [timingStats, setTimingStats] = useState<{totalTime: number, filesProcessed: number, avgPerFile: number} | null>(null)
 
   const convertFileToBinary = async (file: File): Promise<Uint8Array> => {
     return new Promise((resolve, reject) => {
@@ -287,6 +288,16 @@ const FileUploader = ({ onFilesProcessed, processing, setProcessing, selectedMod
         if (response.ok) {
           const data = await response.json()
           
+          // Log timing information if available
+          if (data.timing) {
+            console.log(`⏱️ Batch timing: ${data.timing.total_time}s total, ${data.timing.average_per_file}s avg/file`)
+            setTimingStats({
+              totalTime: data.timing.classification_time,
+              filesProcessed: data.timing.files_processed,
+              avgPerFile: data.timing.average_per_file
+            })
+          }
+          
           // Convert to FileData format
           const batchResults = data.results.map((result: any, index: number) => ({
             id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -403,6 +414,32 @@ const FileUploader = ({ onFilesProcessed, processing, setProcessing, selectedMod
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Timing Stats */}
+      {timingStats && !processing && (
+        <div className="mt-4 p-4 bg-blue-500/10 border border-blue-400/30 rounded-lg">
+          <div className="flex items-center gap-2 mb-2">
+            <svg className="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <h3 className="text-sm font-semibold text-blue-300">Processing Performance</h3>
+          </div>
+          <div className="grid grid-cols-3 gap-4 text-sm">
+            <div>
+              <p className="text-gray-400">Total Time</p>
+              <p className="text-white font-semibold">{timingStats.totalTime.toFixed(3)}s</p>
+            </div>
+            <div>
+              <p className="text-gray-400">Files Processed</p>
+              <p className="text-white font-semibold">{timingStats.filesProcessed}</p>
+            </div>
+            <div>
+              <p className="text-gray-400">Avg per File</p>
+              <p className="text-white font-semibold">{(timingStats.avgPerFile * 1000).toFixed(2)}ms</p>
+            </div>
+          </div>
         </div>
       )}
     </div>

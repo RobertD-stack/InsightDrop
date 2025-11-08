@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from src.pipeline import FileClassificationPipeline
 import base64
+import time
 
 app = Flask(__name__)
 
@@ -29,6 +30,8 @@ def classify_file():
     Returns: classification result
     """
     try:
+        start_time = time.time()
+        
         data = request.json
         filename = data.get('filename')
         binary_data_base64 = data.get('binaryData')
@@ -37,15 +40,28 @@ def classify_file():
             return jsonify({'error': 'Missing filename or binaryData'}), 400
         
         # Decode base64 to bytes
+        decode_start = time.time()
         binary_data = base64.b64decode(binary_data_base64)
+        decode_time = time.time() - decode_start
         
         # Process through AI pipeline
+        classify_start = time.time()
         result = pipeline.process_file(binary_data, filename)
+        classify_time = time.time() - classify_start
+        
+        total_time = time.time() - start_time
+        
+        print(f"⏱️  Single file '{filename}': {total_time:.4f}s (decode: {decode_time:.4f}s, classify: {classify_time:.4f}s)")
         
         # Convert to dict and return
         return jsonify({
             'success': True,
-            'result': result.to_dict()
+            'result': result.to_dict(),
+            'timing': {
+                'total_time': round(total_time, 4),
+                'decode_time': round(decode_time, 4),
+                'classification_time': round(classify_time, 4)
+            }
         })
         
     except Exception as e:
@@ -62,13 +78,21 @@ def classify_batch():
     Returns: array of classification results
     """
     try:
+        start_time = time.time()
+        
         data = request.json
         files_data = data.get('files', [])
         
         if not files_data:
             return jsonify({'error': 'No files provided'}), 400
         
+        print(f"\n{'='*60}")
+        print(f"📊 BATCH CLASSIFICATION REQUEST")
+        print(f"{'='*60}")
+        print(f"Files in batch: {len(files_data)}")
+        
         # Prepare files for batch processing
+        decode_start = time.time()
         files_to_process = []
         for file_data in files_data:
             filename = file_data.get('filename')
@@ -78,16 +102,38 @@ def classify_batch():
                 binary_data = base64.b64decode(binary_data_base64)
                 files_to_process.append((binary_data, filename))
         
+        decode_time = time.time() - decode_start
+        print(f"⏱️  Base64 decode time: {decode_time:.3f}s")
+        
         # Process batch through AI pipeline
+        classify_start = time.time()
         results = pipeline.process_batch(files_to_process)
+        classify_time = time.time() - classify_start
+        
+        total_time = time.time() - start_time
+        avg_time = classify_time / len(files_to_process) if files_to_process else 0
+        
+        print(f"⏱️  Classification time: {classify_time:.3f}s")
+        print(f"⏱️  Average per file: {avg_time:.4f}s")
+        print(f"⏱️  Total processing time: {total_time:.3f}s")
+        print(f"✅ Successfully classified {len(results)} files")
+        print(f"{'='*60}\n")
         
         # Convert all results to dicts
         return jsonify({
             'success': True,
-            'results': [result.to_dict() for result in results]
+            'results': [result.to_dict() for result in results],
+            'timing': {
+                'total_time': round(total_time, 3),
+                'decode_time': round(decode_time, 3),
+                'classification_time': round(classify_time, 3),
+                'average_per_file': round(avg_time, 4),
+                'files_processed': len(results)
+            }
         })
         
     except Exception as e:
+        print(f"❌ Error in batch classification: {e}")
         return jsonify({
             'success': False,
             'error': str(e)
