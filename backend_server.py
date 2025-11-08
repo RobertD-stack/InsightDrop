@@ -6,6 +6,9 @@ import base64
 app = Flask(__name__)
 CORS(app)  # Enable CORS for React frontend
 
+# Configure Flask for large file uploads (2GB max)
+app.config['MAX_CONTENT_LENGTH'] = 2 * 1024 * 1024 * 1024  # 2GB
+
 # Initialize the AI pipeline
 pipeline = FileClassificationPipeline()
 
@@ -85,7 +88,7 @@ def classify_batch():
 def classify_zip():
     """
     Endpoint to classify all files in a ZIP archive (server-side extraction)
-    Expects: { zipData: base64 string }
+    Expects: FormData with 'zipFile' field OR JSON with 'zipData' base64 string
     Returns: array of classification results
     """
     try:
@@ -96,18 +99,24 @@ def classify_zip():
         print("📦 ZIP CLASSIFICATION REQUEST RECEIVED")
         print("="*60)
         
-        data = request.json
-        zip_base64 = data.get('zipData')
-        
-        if not zip_base64:
-            print("❌ Error: Missing zipData in request")
-            return jsonify({'error': 'Missing zipData'}), 400
-        
-        print(f"✅ Received base64 data: {len(zip_base64)} characters")
-        
-        # Decode ZIP
-        zip_data = base64.b64decode(zip_base64)
-        print(f"✅ Decoded ZIP size: {len(zip_data) / 1024 / 1024:.2f} MB")
+        # Check if request is FormData (binary upload) or JSON (base64)
+        if 'zipFile' in request.files:
+            # FormData upload - better for large files
+            zip_file_obj = request.files['zipFile']
+            zip_data = zip_file_obj.read()
+            print(f"✅ Received binary ZIP via FormData: {len(zip_data) / 1024 / 1024:.2f} MB")
+        else:
+            # JSON with base64 - for smaller files
+            data = request.json
+            zip_base64 = data.get('zipData')
+            
+            if not zip_base64:
+                print("❌ Error: Missing zipData in request")
+                return jsonify({'error': 'Missing zipData or zipFile'}), 400
+            
+            print(f"✅ Received base64 data: {len(zip_base64)} characters")
+            zip_data = base64.b64decode(zip_base64)
+            print(f"✅ Decoded ZIP size: {len(zip_data) / 1024 / 1024:.2f} MB")
         
         zip_file = zipfile.ZipFile(io.BytesIO(zip_data))
         file_list = zip_file.filelist

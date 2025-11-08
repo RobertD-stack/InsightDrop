@@ -26,20 +26,39 @@ const FileUploader = ({ onFilesProcessed, processing, setProcessing }: FileUploa
 
   const uint8ArrayToBase64 = async (bytes: Uint8Array): Promise<string> => {
     // Use browser's native FileReader for robust base64 encoding
-    // This handles files of any size including large EXE files without crashing
+    // Note: Has limits around 500MB-1GB depending on browser
     return new Promise((resolve, reject) => {
-      // Create a new Uint8Array to ensure standard ArrayBuffer type
-      const safeBytes = new Uint8Array(bytes)
-      const blob = new Blob([safeBytes])
-      const reader = new FileReader()
-      reader.onload = () => {
-        const dataUrl = reader.result as string
-        // Remove the data URL prefix (e.g., "data:application/octet-stream;base64,")
-        const base64 = dataUrl.split(',')[1]
-        resolve(base64)
+      try {
+        // Check size limit (500MB)
+        if (bytes.length > 500 * 1024 * 1024) {
+          reject(new Error('File too large for base64 encoding (>500MB). Use FormData instead.'))
+          return
+        }
+        
+        const safeBytes = new Uint8Array(bytes)
+        const blob = new Blob([safeBytes])
+        const reader = new FileReader()
+        reader.onload = () => {
+          const dataUrl = reader.result as string
+          if (!dataUrl) {
+            reject(new Error('FileReader returned empty result'))
+            return
+          }
+          // Remove the data URL prefix (e.g., "data:application/octet-stream;base64,")
+          const base64 = dataUrl.split(',')[1]
+          if (!base64) {
+            reject(new Error('Failed to extract base64 from data URL'))
+            return
+          }
+          resolve(base64)
+        }
+        reader.onerror = (error) => {
+          reject(new Error(`FileReader error: ${error}`))
+        }
+        reader.readAsDataURL(blob)
+      } catch (error) {
+        reject(error)
       }
-      reader.onerror = reject
-      reader.readAsDataURL(blob)
     })
   }
 
@@ -87,23 +106,24 @@ const FileUploader = ({ onFilesProcessed, processing, setProcessing }: FileUploa
   const classifyZipServerSide = async (file: File, zipFileName: string): Promise<FileData[]> => {
     // Server-side ZIP processing - fast for large ZIPs!
     try {
-      console.log(`Starting ZIP processing for: ${zipFileName} (${(file.size / 1024 / 1024).toFixed(2)} MB)`)
+      const fileSizeMB = file.size / 1024 / 1024
+      console.log(`Starting ZIP processing for: ${zipFileName} (${fileSizeMB.toFixed(2)} MB)`)
       
-      const arrayBuffer = await file.arrayBuffer()
-      console.log('ZIP file loaded into memory, converting to base64...')
+      // For large files (>100MB), use FormData instead of base64
+      // This avoids JavaScript string length limits
+      const formData = new FormData()
+      formData.append('zipFile', file)
       
-      const base64 = await uint8ArrayToBase64(new Uint8Array(arrayBuffer))
-      console.log(`Base64 conversion complete (${base64.length} chars), sending to server...`)
-      
-      setUploadProgress(prev => ({ ...prev, [zipFileName]: 50 }))
+      console.log('Uploading ZIP file to server...')
+      setUploadProgress(prev => ({ ...prev, [zipFileName]: 20 }))
       
       const response = await fetch('http://localhost:5000/api/classify-zip', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ zipData: base64 })
+        body: formData  // Send binary directly, no base64!
       })
 
       console.log(`Server responded with status: ${response.status}`)
+      setUploadProgress(prev => ({ ...prev, [zipFileName]: 60 }))
 
       if (!response.ok) {
         const errorText = await response.text()
@@ -111,6 +131,7 @@ const FileUploader = ({ onFilesProcessed, processing, setProcessing }: FileUploa
         throw new Error(`ZIP classification failed: ${response.statusText} - ${errorText}`)
       }
 
+      setUploadProgress(prev => ({ ...prev, [zipFileName]: 80 }))
       const data = await response.json()
       console.log('Server response data:', data)
       
