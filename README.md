@@ -4,6 +4,30 @@ A modern, responsive web application for automatically identifying and classifyi
 
 ## NCAT Fall Hackathon 2025
 
+---
+
+## 🚀 Quick Start
+
+**New to the project?** Choose your guide:
+
+- 📘 **[QUICKSTART.md](QUICKSTART.md)** - Complete beginner? Start here! (5 minutes)
+- 📗 **[SETUP.md](SETUP.md)** - Detailed setup instructions with troubleshooting
+- 📕 **README.md** - You are here! (Technical overview)
+
+**TL;DR for developers:**
+```bash
+git clone https://github.com/RobertD-stack/NCATFallHackathon2025.git
+cd NCATFallHackathon2025
+git checkout Robert
+npm install
+npm run dev
+# Open http://localhost:3000
+```
+
+> **Note:** This project works with **any code editor or IDE** (VS Code, Sublime, Notepad++, etc.). You don't need Cursor or any special tools - just Node.js and a browser!
+
+---
+
 ### Features
 
 - 🎯 **Drag & Drop Upload** - Easy file upload interface
