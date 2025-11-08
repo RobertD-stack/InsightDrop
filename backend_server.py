@@ -231,6 +231,24 @@ def health():
     """Health check endpoint"""
     return jsonify({'status': 'healthy', 'message': 'AI Classification API is running'})
 
+@app.route('/api/branch', methods=['GET'])
+def get_branch():
+    """Get current git branch name"""
+    try:
+        import subprocess
+        result = subprocess.run(
+            ['git', 'branch', '--show-current'],
+            capture_output=True,
+            text=True,
+            cwd='.',
+            timeout=5
+        )
+        branch_name = result.stdout.strip() if result.returncode == 0 else 'unknown'
+        return jsonify({'branch': branch_name})
+    except Exception as e:
+        print(f"Error getting branch: {e}")
+        return jsonify({'branch': 'unknown'})
+
 if __name__ == '__main__':
     print("Starting AI File Classification API Server...")
     print("Server running on http://localhost:5000")
@@ -239,5 +257,6 @@ if __name__ == '__main__':
     print("  POST /api/classify-batch - Classify multiple files (batch)")
     print("  POST /api/classify-zip - Classify all files in ZIP (server-side)")
     print("  GET  /api/health - Health check")
+    print("  GET  /api/branch - Get current git branch")
     app.run(debug=True, port=5000)
 

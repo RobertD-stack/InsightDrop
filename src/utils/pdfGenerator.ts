@@ -150,7 +150,9 @@ export const generatePDFSummary = (files: FileData[], timing?: TimingData) => {
     doc.setFont(undefined, 'normal')
     doc.setFontSize(10)
     
-    // Performance stats
+    // Show files processed from timing data
+    doc.text(`Files Processed (Timing): ${timing.filesProcessed}`, 20, yPos)
+    yPos += 6
     doc.text(`Total Processing Time: ${timing.totalTime.toFixed(3)}s`, 20, yPos)
     yPos += 6
     doc.text(`Classification Time: ${timing.classificationTime.toFixed(3)}s`, 20, yPos)
@@ -163,6 +165,14 @@ export const generatePDFSummary = (files: FileData[], timing?: TimingData) => {
     // Throughput calculation
     const throughput = timing.classificationTime > 0 ? timing.filesProcessed / timing.classificationTime : 0
     doc.text(`Throughput: ${throughput.toFixed(2)} files/second`, 20, yPos)
+    yPos += 6
+    
+    // Verification check
+    doc.setFontSize(8)
+    doc.setFont(undefined, 'italic')
+    doc.text(`Verification: ${timing.filesProcessed} files ÷ ${timing.classificationTime.toFixed(3)}s = ${throughput.toFixed(2)} files/s`, 20, yPos)
+    doc.setFont(undefined, 'normal')
+    doc.setFontSize(10)
     yPos += 10
   }
   
